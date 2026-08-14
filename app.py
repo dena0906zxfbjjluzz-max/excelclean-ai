@@ -13,7 +13,7 @@ ESTILO = """
 <style>
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
 
-html, body, [class*="st-"], .stApp {
+html, body, .stApp {
   font-family: "IBM Plex Sans", sans-serif;
 }
 
@@ -42,42 +42,32 @@ html, body, [class*="st-"], .stApp {
   background:
     radial-gradient(ellipse 70% 80% at 0% 0%, rgba(43,184,168,0.16), transparent 55%),
     linear-gradient(145deg, rgba(14, 22, 32, 0.94), rgba(10, 16, 24, 0.90));
-  border-radius: 16px;
-  padding: 1.35rem 1.5rem 1.2rem;
-  margin-bottom: 1.1rem;
+  border-radius: 12px;
+  padding: 0.85rem 1.1rem 0.8rem;
+  margin-bottom: 0.75rem;
 }
 
 .hero-kicker {
   color: #2BB8A8;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  margin: 0 0 0.35rem 0;
+  margin: 0 0 0.25rem 0;
 }
 
 .hero h1 {
   margin: 0;
-  font-size: 1.85rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: #F4F7FB;
 }
 
 .hero p {
-  margin: 0.45rem 0 0 0;
+  margin: 0.3rem 0 0 0;
   color: #B7C3D4;
-  font-size: 0.98rem;
-  line-height: 1.45;
-}
-
-.drop-hint {
-  margin: 0.85rem 0 0.2rem 0;
-  padding: 0.7rem 0.9rem;
-  border-radius: 10px;
-  border: 1px solid rgba(43, 184, 168, 0.22);
-  background: rgba(12, 18, 25, 0.78);
-  color: #C9D4E3;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  line-height: 1.35;
 }
 
 .vx-filter-title {
@@ -130,13 +120,19 @@ html, body, [class*="st-"], .stApp {
 
 [data-testid="stFileUploader"] {
   border: 1px dashed rgba(43, 184, 168, 0.45);
-  border-radius: 14px;
-  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  padding: 0.35rem 0.55rem;
   background: rgba(12, 18, 25, 0.72);
 }
 
 [data-testid="stFileUploader"] section {
   border: none !important;
+  padding: 0 !important;
+}
+
+[data-testid="stFileUploaderDropzone"] {
+  min-height: 2.5rem !important;
+  padding: 0.3rem 0.45rem !important;
 }
 
 div[data-testid="stMetric"] {
@@ -500,10 +496,9 @@ aplicar_estilo()
 
 st.sidebar.markdown(
     """
-    <div style="padding:0 0 0.9rem 0;margin-bottom:0.4rem;border-bottom:1px solid rgba(43,184,168,0.22)">
+    <div style="padding:0 0 0.7rem 0;margin-bottom:0.35rem;border-bottom:1px solid rgba(43,184,168,0.22)">
       <p style="margin:0;font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#2BB8A8">Validador</p>
-      <p style="margin:0.15rem 0 0 0;font-size:1rem;font-weight:700;color:#EAF0F6">ExcelClean AI</p>
-      <p style="margin:0.2rem 0 0 0;font-size:0.75rem;color:#8A9BB0">Revisión de packing / almacén</p>
+      <p style="margin:0.12rem 0 0 0;font-size:0.82rem;font-weight:600;color:#EAF0F6">ExcelClean AI</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -514,7 +509,6 @@ st.markdown(
 <div class="hero">
   <p class="hero-kicker">Validador · packing y almacén</p>
   <h1>ExcelClean AI</h1>
-  <p>Misma lógica de revisión que en planta: busca, filtra el lote y edita la tabla como Excel.</p>
 </div>
 """,
     unsafe_allow_html=True,
@@ -526,10 +520,6 @@ if archivo is None:
     for k in ("resultado", "archivo_nombre", "hojas_elegidas", "edit_src", "editor_ver"):
         st.session_state.pop(k, None)
     borrar_editores()
-    st.markdown(
-        '<p class="drop-hint">Arrastra el archivo aquí. No pide contraseña: cada persona sube el suyo.</p>',
-        unsafe_allow_html=True,
-    )
     st.stop()
 
 peso_mb = len(archivo.getvalue()) / (1024 * 1024)
