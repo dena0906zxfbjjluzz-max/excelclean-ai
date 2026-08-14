@@ -19,8 +19,8 @@ def es_columna_fecha(nombre: str) -> bool:
     return "fecha" in n or "date" in n
 
 
-def leer_excel(archivo, hoja: str | int) -> pd.DataFrame:
-    return pd.read_excel(archivo, sheet_name=hoja, engine="openpyxl")
+def leer_excel(datos: bytes, hoja):
+    return pd.read_excel(io.BytesIO(datos), sheet_name=hoja, engine="openpyxl")
 
 
 def limpiar_dataframe(
@@ -103,8 +103,10 @@ if st.session_state.get("archivo_nombre") != archivo.name:
     st.session_state.archivo_nombre = archivo.name
     st.session_state.pop("df_limpio", None)
 
+datos = archivo.getvalue()
+
 try:
-    xls = pd.ExcelFile(archivo, engine="openpyxl")
+    xls = pd.ExcelFile(io.BytesIO(datos), engine="openpyxl")
     hojas = xls.sheet_names
 except Exception as e:
     st.error(f"Error al leer el Excel: {e}")
@@ -113,7 +115,7 @@ except Exception as e:
 hoja = hojas[0] if len(hojas) == 1 else st.selectbox("Hoja a tabular", hojas)
 
 try:
-    df = leer_excel(archivo, hoja)
+    df = leer_excel(datos, hoja)
 except Exception as e:
     st.error(f"Error al leer la hoja: {e}")
     st.stop()
