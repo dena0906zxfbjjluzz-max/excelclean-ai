@@ -8,3 +8,5 @@ source .venv/bin/activate
 pip install -r requirements.txt
 streamlit run app.py
 ```
+
+En Streamlit Cloud elige **Python 3.12** en Advanced settings al crear la app (`runtime.txt` no se usa).
