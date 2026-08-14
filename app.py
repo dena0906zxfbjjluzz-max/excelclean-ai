@@ -102,7 +102,18 @@ corregir_numeros = st.sidebar.checkbox(
     "Forzar números (monto, precio, total, importe)", value=True
 )
 corregir_fechas = st.sidebar.checkbox(
-    "Normalizar fechas a YYYY-MM-DD (día primero)", value=True
+            "Normalizar fechas a YYYY-MM-DD (día primero)", value=True
+        )
+
+st.sidebar.subheader("4. Extra")
+quitar_errores_excel = st.sidebar.checkbox(
+    "Quitar errores de Excel (#REF!, #N/A, #VALUE!)", value=True
+)
+quitar_filas_total = st.sidebar.checkbox(
+    "Quitar filas de Total / Subtotal", value=True
+)
+rellenar_hacia_abajo = st.sidebar.checkbox(
+    "Rellenar celdas vacías con el valor de arriba"
 )
 
 if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
@@ -123,6 +134,9 @@ if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
                 corregir_numeros=corregir_numeros,
                 corregir_fechas=corregir_fechas,
                 normalizar_encabezados=normalizar_encabezados,
+                quitar_errores_excel=quitar_errores_excel,
+                quitar_filas_total=quitar_filas_total,
+                rellenar_hacia_abajo=rellenar_hacia_abajo,
             )
             resultado[nombre] = {"original": tabla, "limpio": limpio, "stats": stats}
         st.session_state.resultado = resultado
@@ -170,7 +184,7 @@ m1.metric(
 )
 m2.metric("Duplicados quitados", stats["duplicados"])
 m3.metric("Filas vacías quitadas", stats["filas_vacias"])
-m4.metric("Columnas vacías quitadas", stats["cols_vacias"])
+m4.metric("Totales quitados", stats.get("filas_total", 0))
 
 antes, despues = st.tabs(["Original", "Limpio"])
 with antes:

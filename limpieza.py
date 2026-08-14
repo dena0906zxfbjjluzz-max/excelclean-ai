@@ -13,6 +13,26 @@ PALABRAS_NUMERO = (
     "importe",
     "pago",
     "saldo",
+    "stock",
+    "cajas",
+    "unidades",
+    "peso",
+    "kg",
+)
+ERRORES_EXCEL = (
+    "#n/a",
+    "#na",
+    "#ref!",
+    "#value!",
+    "#div/0!",
+    "#name?",
+    "#null!",
+    "#num!",
+    "#getting_data",
+)
+FILAS_TOTAL = re.compile(
+    r"^\s*(total|subtotal|suma|totales|subtotales)\b",
+    re.IGNORECASE,
 )
 CARACTERES_TEXTO = r"[^a-zA-Z0-9\sñÑáéíóúÁÉÍÓÚüÜ]"
 MAX_MB = 25
@@ -84,6 +104,37 @@ def leer_hoja(datos: bytes, hoja: str) -> pd.DataFrame:
     return ids_a_texto(tabla)
 
 
+def parece_columna_numerica(serie: pd.Series) -> bool:
+    muestra = serie.dropna().astype(str).str.strip()
+    muestra = muestra[~muestra.str.lower().isin(("nan", "none", "", "-", "n/a"))]
+    if len(muestra) < 4:
+        return False
+    convertidos = a_numero(muestra)
+    ok = convertidos.notna().mean()
+    return ok >= 0.7
+
+
+def limpiar_celdas_texto(serie: pd.Series) -> pd.Series:
+    texto = serie.astype("string")
+    texto = texto.str.replace("\u00a0", " ", regex=False)
+    texto = texto.str.replace(r"[\u200b\u200c\u200d\ufeff]", "", regex=True)
+    texto = texto.str.replace(r"[\r\n]+", " ", regex=True)
+    texto = texto.str.strip()
+    errores = texto.str.lower().isin(ERRORES_EXCEL)
+    texto = texto.mask(errores, pd.NA)
+    texto = texto.replace({"": pd.NA, "nan": pd.NA, "None": pd.NA, "-": pd.NA})
+    return texto
+
+
+def es_fila_total(fila: pd.Series) -> bool:
+    for val in fila.tolist():
+        if pd.isna(val):
+            continue
+        if FILAS_TOTAL.match(str(val).strip()):
+            return True
+    return False
+
+
 def limpiar_dataframe(
     df: pd.DataFrame,
     *,
@@ -98,6 +149,9 @@ def limpiar_dataframe(
     corregir_numeros: bool,
     corregir_fechas: bool,
     normalizar_encabezados: bool,
+    quitar_errores_excel: bool,
+    quitar_filas_total: bool,
+    rellenar_hacia_abajo: bool,
 ) -> tuple[pd.DataFrame, dict]:
     df_limpio = df.copy()
     stats = {
@@ -106,6 +160,8 @@ def limpiar_dataframe(
         "duplicados": 0,
         "filas_vacias": 0,
         "cols_vacias": 0,
+        "filas_total": 0,
+        "errores_excel": 0,
     }
 
     if normalizar_encabezados:
@@ -121,6 +177,21 @@ def limpiar_dataframe(
                 usados[base] = 1
             finales.append(base)
         df_limpio.columns = finales
+
+    if quitar_errores_excel or limpiar_espacios:
+        for col in df_limpio.columns:
+            if df_limpio[col].dtype == "object" or pd.api.types.is_string_dtype(df_limpio[col]):
+                antes_na = df_limpio[col].isna().sum()
+                df_limpio[col] = limpiar_celdas_texto(df_limpio[col])
+                stats["errores_excel"] += int(df_limpio[col].isna().sum() - antes_na)
+
+    if quitar_filas_total and not df_limpio.empty:
+        mask_total = df_limpio.apply(es_fila_total, axis=1)
+        stats["filas_total"] = int(mask_total.sum())
+        df_limpio = df_limpio.loc[~mask_total]
+
+    if rellenar_hacia_abajo:
+        df_limpio = df_limpio.ffill()
 
     if eliminar_filas_vacias:
         antes = len(df_limpio)
@@ -141,7 +212,9 @@ def limpiar_dataframe(
         serie = df_limpio[col]
         es_texto = serie.dtype == "object" or pd.api.types.is_string_dtype(serie)
         fecha = es_columna_fecha(col)
-        numero = es_columna_numero(col)
+        numero = es_columna_numero(col) or (
+            corregir_numeros and not es_columna_id(col) and not fecha and parece_columna_numerica(serie)
+        )
 
         if es_texto and limpiar_espacios:
             mask = serie.notna()
