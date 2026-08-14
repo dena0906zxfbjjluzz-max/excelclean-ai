@@ -5,7 +5,7 @@ import streamlit as st
 
 RAIZ = Path(__file__).resolve().parent
 CSS_PATH = RAIZ / "assets" / "estilo.css"
-FONDO_PATH = RAIZ / "assets" / "fondo.jpg"
+FONDO_PATH = RAIZ / "assets" / "fondo.png"
 
 
 def aplicar_estilo() -> None:

@@ -7,7 +7,7 @@ html, body, .stApp {
 .stApp {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 45%, rgba(18, 28, 22, 0.10) 100%),
-    url("data:image/jpeg;base64,__FONDO__") center top / cover no-repeat fixed !important;
+    url("data:image/png;base64,__FONDO__") center top / cover no-repeat fixed !important;
   color: #1c241f;
 }
 
