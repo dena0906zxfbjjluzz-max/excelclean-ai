@@ -7,6 +7,111 @@ import streamlit as st
 
 st.set_page_config(page_title="ExcelClean AI", page_icon="📊", layout="wide")
 
+ESTILO = """
+<style>
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
+
+html, body, [class*="st-"], .stApp {
+  font-family: "IBM Plex Sans", sans-serif;
+}
+
+.stApp {
+  background:
+    radial-gradient(900px 420px at 8% -8%, rgba(201, 162, 39, 0.14), transparent 55%),
+    radial-gradient(800px 380px at 92% 0%, rgba(46, 90, 136, 0.22), transparent 50%),
+    linear-gradient(180deg, #0B1220 0%, #080E18 100%);
+}
+
+[data-testid="stHeader"] {
+  background: rgba(11, 18, 32, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+[data-testid="stSidebar"] {
+  background: #0E1626;
+  border-right: 1px solid rgba(232, 238, 246, 0.08);
+}
+
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+  letter-spacing: 0.04em;
+}
+
+.hero {
+  border: 1px solid rgba(201, 162, 39, 0.28);
+  background: linear-gradient(145deg, rgba(18, 26, 42, 0.95), rgba(11, 18, 32, 0.88));
+  border-radius: 16px;
+  padding: 1.35rem 1.5rem 1.2rem;
+  margin-bottom: 1.1rem;
+}
+
+.hero-kicker {
+  color: #C9A227;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0 0 0.35rem 0;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: #F4F7FB;
+}
+
+.hero p {
+  margin: 0.45rem 0 0 0;
+  color: #B7C3D4;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.drop-hint {
+  margin: 0.85rem 0 0.2rem 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(201, 162, 39, 0.22);
+  background: rgba(18, 26, 42, 0.7);
+  color: #C9D4E3;
+  font-size: 0.9rem;
+}
+
+[data-testid="stFileUploader"] {
+  border: 1px dashed rgba(201, 162, 39, 0.45);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  background: rgba(18, 26, 42, 0.65);
+}
+
+[data-testid="stFileUploader"] section {
+  border: none !important;
+}
+
+div[data-testid="stMetric"] {
+  background: rgba(18, 26, 42, 0.8);
+  border: 1px solid rgba(232, 238, 246, 0.08);
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+}
+
+.stButton > button {
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.stDownloadButton > button {
+  border-radius: 10px;
+  font-weight: 600;
+}
+</style>
+"""
+
+
+def aplicar_estilo() -> None:
+    st.markdown(ESTILO, unsafe_allow_html=True)
+
 PALABRAS_NUMERO = (
     "monto",
     "precio",
@@ -219,16 +324,29 @@ def herramientas_columnas(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFra
     return df
 
 
-st.title("📊 ExcelClean AI")
-st.write("Como Excel, pero aquí: editas celdas, agregas filas y luego limpias o descargas.")
+aplicar_estilo()
 
-archivo = st.file_uploader("Sube tu archivo Excel (.xlsx)", type=["xlsx"])
+st.markdown(
+    """
+<div class="hero">
+  <p class="hero-kicker">Operación de datos</p>
+  <h1>ExcelClean AI</h1>
+  <p>Limpia y edita tablas como en Excel, con un flujo más directo: sube, corrige, descarga.</p>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+archivo = st.file_uploader("Archivo Excel (.xlsx)", type=["xlsx"])
 
 if archivo is None:
     for k in ("resultado", "archivo_nombre", "hojas_elegidas", "edit_src", "editor_ver"):
         st.session_state.pop(k, None)
     borrar_editores()
-    st.info("Arrastra un `.xlsx`. Sin contraseña: cada quien sube su archivo.")
+    st.markdown(
+        '<p class="drop-hint">Arrastra el archivo aquí. No pide contraseña: cada persona sube el suyo.</p>',
+        unsafe_allow_html=True,
+    )
     st.stop()
 
 peso_mb = len(archivo.getvalue()) / (1024 * 1024)
