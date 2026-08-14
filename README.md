@@ -1,6 +1,6 @@
 # ExcelClean AI
 
-Limpieza rápida de tablas en Excel (solo `.xlsx`).
+Limpieza rápida de tablas en Excel (solo `.xlsx`): una o varias hojas, duplicados, vacíos, texto, números y fechas.
 
 ```bash
 python -m venv .venv

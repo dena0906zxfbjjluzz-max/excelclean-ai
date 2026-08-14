@@ -1,12 +1,25 @@
 import io
+import re
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
 st.set_page_config(page_title="ExcelClean AI", page_icon="📊", layout="wide")
 
-PALABRAS_NUMERO = ("monto", "precio", "total", "cantidad", "valor", "costo")
+PALABRAS_NUMERO = (
+    "monto",
+    "precio",
+    "total",
+    "cantidad",
+    "valor",
+    "costo",
+    "importe",
+    "pago",
+    "saldo",
+)
 CARACTERES_TEXTO = r"[^a-zA-Z0-9\sñÑáéíóúÁÉÍÓÚüÜ]"
+MAX_MB = 25
 
 
 def es_columna_numero(nombre: str) -> bool:
@@ -19,7 +32,26 @@ def es_columna_fecha(nombre: str) -> bool:
     return "fecha" in n or "date" in n
 
 
-def leer_excel(datos: bytes, hoja):
+def normalizar_nombre_columna(nombre) -> str:
+    texto = str(nombre).strip()
+    texto = re.sub(r"\s+", " ", texto)
+    if texto.lower().startswith("unnamed") or texto in ("", "nan", "None"):
+        return ""
+    return texto
+
+
+def a_numero(serie: pd.Series) -> pd.Series:
+    texto = serie.astype(str).str.strip()
+    texto = texto.replace({"": pd.NA, "nan": pd.NA, "None": pd.NA, "NaT": pd.NA})
+    # 1.234,56 → 1234.56  |  1234.56 se deja
+    con_coma = texto.str.contains(",", na=False)
+    texto = texto.where(~con_coma, texto.str.replace(".", "", regex=False).str.replace(",", ".", regex=False))
+    texto = texto.str.replace(r"[^\d.\-]", "", regex=True)
+    texto = texto.replace({"": pd.NA})
+    return pd.to_numeric(texto, errors="coerce")
+
+
+def leer_hoja(datos: bytes, hoja: str) -> pd.DataFrame:
     return pd.read_excel(io.BytesIO(datos), sheet_name=hoja, engine="openpyxl")
 
 
@@ -28,80 +60,131 @@ def limpiar_dataframe(
     *,
     eliminar_duplicados: bool,
     eliminar_filas_vacias: bool,
+    eliminar_columnas_vacias: bool,
     rellenar_na: bool,
     limpiar_espacios: bool,
-    texto_mayusculas: bool,
+    espacios_internos: bool,
+    modo_texto: str,
     remover_especiales: bool,
     corregir_numeros: bool,
     corregir_fechas: bool,
-) -> pd.DataFrame:
+    normalizar_encabezados: bool,
+) -> tuple[pd.DataFrame, dict]:
     df_limpio = df.copy()
+    stats = {
+        "filas_antes": int(df.shape[0]),
+        "cols_antes": int(df.shape[1]),
+        "duplicados": 0,
+        "filas_vacias": 0,
+        "cols_vacias": 0,
+    }
 
-    if eliminar_duplicados:
-        df_limpio = df_limpio.drop_duplicates()
+    if normalizar_encabezados:
+        nuevos = [normalizar_nombre_columna(c) for c in df_limpio.columns]
+        usados = {}
+        finales = []
+        for i, nombre in enumerate(nuevos):
+            base = nombre or f"columna_{i + 1}"
+            if base in usados:
+                usados[base] += 1
+                base = f"{base}_{usados[base]}"
+            else:
+                usados[base] = 1
+            finales.append(base)
+        df_limpio.columns = finales
 
     if eliminar_filas_vacias:
+        antes = len(df_limpio)
         df_limpio = df_limpio.dropna(how="all")
+        stats["filas_vacias"] = antes - len(df_limpio)
+
+    if eliminar_columnas_vacias:
+        antes = df_limpio.shape[1]
+        df_limpio = df_limpio.dropna(axis=1, how="all")
+        stats["cols_vacias"] = antes - df_limpio.shape[1]
+
+    if eliminar_duplicados:
+        antes = len(df_limpio)
+        df_limpio = df_limpio.drop_duplicates()
+        stats["duplicados"] = antes - len(df_limpio)
 
     for col in df_limpio.columns:
         serie = df_limpio[col]
         es_texto = serie.dtype == "object" or pd.api.types.is_string_dtype(serie)
+        fecha = es_columna_fecha(col)
+        numero = es_columna_numero(col)
 
         if es_texto and limpiar_espacios:
             mask = serie.notna()
             df_limpio.loc[mask, col] = serie.loc[mask].astype(str).str.strip()
+            serie = df_limpio[col]
 
-        if es_texto and texto_mayusculas:
+        if es_texto and espacios_internos:
             mask = df_limpio[col].notna()
-            df_limpio.loc[mask, col] = df_limpio.loc[mask, col].astype(str).str.upper()
-
-        if es_texto and remover_especiales and not es_columna_fecha(col):
-            mask = df_limpio[col].notna()
-            df_limpio.loc[mask, col] = df_limpio.loc[mask, col].astype(str).str.replace(
-                CARACTERES_TEXTO, "", regex=True
+            df_limpio.loc[mask, col] = (
+                df_limpio.loc[mask, col].astype(str).str.replace(r"\s+", " ", regex=True)
             )
 
-        if corregir_numeros and es_columna_numero(col):
-            df_limpio[col] = (
-                df_limpio[col]
-                .astype(str)
-                .str.replace(r"[^\d.\-]", "", regex=True)
-                .replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
-            )
-            df_limpio[col] = pd.to_numeric(df_limpio[col], errors="coerce")
+        if es_texto and modo_texto != "dejar" and not fecha:
+            mask = df_limpio[col].notna()
+            s = df_limpio.loc[mask, col].astype(str)
+            if modo_texto == "MAYÚSCULAS":
+                df_limpio.loc[mask, col] = s.str.upper()
+            elif modo_texto == "minúsculas":
+                df_limpio.loc[mask, col] = s.str.lower()
+            elif modo_texto == "Título":
+                df_limpio.loc[mask, col] = s.str.title()
 
-        if corregir_fechas and es_columna_fecha(col):
-            df_limpio[col] = pd.to_datetime(df_limpio[col], errors="coerce").dt.strftime(
+        if es_texto and remover_especiales and not fecha and not numero:
+            mask = df_limpio[col].notna()
+            df_limpio.loc[mask, col] = (
+                df_limpio.loc[mask, col].astype(str).str.replace(CARACTERES_TEXTO, "", regex=True)
+            )
+
+        if corregir_numeros and numero:
+            df_limpio[col] = a_numero(df_limpio[col])
+
+        if corregir_fechas and fecha:
+            df_limpio[col] = pd.to_datetime(df_limpio[col], errors="coerce", dayfirst=True).dt.strftime(
                 "%Y-%m-%d"
             )
 
     if rellenar_na:
         df_limpio = df_limpio.fillna("N/A")
 
-    return df_limpio
+    stats["filas_despues"] = int(df_limpio.shape[0])
+    stats["cols_despues"] = int(df_limpio.shape[1])
+    return df_limpio, stats
 
 
-def excel_en_memoria(df: pd.DataFrame) -> bytes:
+def excel_en_memoria(hojas: dict[str, pd.DataFrame]) -> bytes:
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="limpio")
+        for nombre, tabla in hojas.items():
+            hoja = re.sub(r"[\\/*?:\[\]]", "_", str(nombre))[:31] or "limpio"
+            tabla.to_excel(writer, index=False, sheet_name=hoja)
     return buffer.getvalue()
 
 
 st.title("📊 ExcelClean AI")
-st.write("Sube un Excel, elige la hoja y limpia la tabla en un clic.")
+st.write("Sube un Excel, elige hoja(s) y deja la tabla lista para trabajar.")
 
 archivo = st.file_uploader("Sube tu archivo Excel (.xlsx)", type=["xlsx"])
 
 if archivo is None:
-    st.session_state.pop("df_original", None)
-    st.session_state.pop("df_limpio", None)
-    st.session_state.pop("archivo_nombre", None)
+    for k in ("df_original", "resultado", "archivo_nombre", "hojas_elegidas"):
+        st.session_state.pop(k, None)
+    st.info("Arrastra un `.xlsx`. Sin contraseña: cada quien sube su archivo.")
+    st.stop()
+
+peso_mb = len(archivo.getvalue()) / (1024 * 1024)
+if peso_mb > MAX_MB:
+    st.error(f"El archivo pesa {peso_mb:.1f} MB. El máximo es {MAX_MB} MB.")
     st.stop()
 
 if st.session_state.get("archivo_nombre") != archivo.name:
     st.session_state.archivo_nombre = archivo.name
-    st.session_state.pop("df_limpio", None)
+    st.session_state.pop("resultado", None)
 
 datos = archivo.getvalue()
 
@@ -112,73 +195,125 @@ except Exception as e:
     st.error(f"Error al leer el Excel: {e}")
     st.stop()
 
-hoja = hojas[0] if len(hojas) == 1 else st.selectbox("Hoja a tabular", hojas)
+st.sidebar.header("Hojas")
+if len(hojas) == 1:
+    hojas_elegidas = hojas
+    st.sidebar.caption(f"Una hoja: **{hojas[0]}**")
+else:
+    todas = st.sidebar.checkbox("Limpiar todas las hojas", value=False)
+    if todas:
+        hojas_elegidas = hojas
+    else:
+        hojas_elegidas = st.sidebar.multiselect(
+            "Hojas a tabular", hojas, default=[hojas[0]]
+        )
+    if not hojas_elegidas:
+        st.warning("Elige al menos una hoja.")
+        st.stop()
+
+if st.session_state.get("hojas_elegidas") != hojas_elegidas:
+    st.session_state.hojas_elegidas = hojas_elegidas
+    st.session_state.pop("resultado", None)
 
 try:
-    df = leer_excel(datos, hoja)
+    tablas = {h: leer_hoja(datos, h) for h in hojas_elegidas}
 except Exception as e:
     st.error(f"Error al leer la hoja: {e}")
     st.stop()
 
-st.session_state.df_original = df
-
-st.subheader("Vista previa")
-st.write(f"**{df.shape[0]} filas** · **{df.shape[1]} columnas** · hoja `{hoja}`")
-st.dataframe(df.head(20), use_container_width=True)
-
 st.sidebar.header("Filtros")
 
-st.sidebar.subheader("1. Filas")
+st.sidebar.subheader("1. Filas y columnas")
 eliminar_duplicados = st.sidebar.checkbox("Eliminar filas 100% idénticas", value=True)
 eliminar_filas_vacias = st.sidebar.checkbox(
     "Eliminar filas completamente vacías", value=True
 )
+eliminar_columnas_vacias = st.sidebar.checkbox(
+    "Eliminar columnas completamente vacías", value=True
+)
+normalizar_encabezados = st.sidebar.checkbox(
+    "Limpiar nombres de columnas", value=True
+)
 rellenar_na = st.sidebar.checkbox("Rellenar celdas vacías sueltas con N/A")
 
 st.sidebar.subheader("2. Texto")
-limpiar_espacios = st.sidebar.checkbox(
-    "Quitar espacios al inicio/final", value=True
+limpiar_espacios = st.sidebar.checkbox("Quitar espacios al inicio/final", value=True)
+espacios_internos = st.sidebar.checkbox("Dejar un solo espacio entre palabras", value=True)
+modo_texto = st.sidebar.selectbox(
+    "Mayúsculas / minúsculas",
+    ["dejar", "MAYÚSCULAS", "minúsculas", "Título"],
 )
-texto_mayusculas = st.sidebar.checkbox("Convertir texto a MAYÚSCULAS")
 remover_especiales = st.sidebar.checkbox("Quitar caracteres raros (#, $, %, @)")
 
 st.sidebar.subheader("3. Números y fechas")
 corregir_numeros = st.sidebar.checkbox(
-    "Forzar números en monto/precio/total", value=True
+    "Forzar números (monto, precio, total, importe)", value=True
 )
-corregir_fechas = st.sidebar.checkbox("Normalizar columnas de fecha a YYYY-MM-DD")
+corregir_fechas = st.sidebar.checkbox(
+    "Normalizar fechas a YYYY-MM-DD (día primero)", value=True
+)
 
 if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
     with st.spinner("Tabulando y limpiando..."):
-        st.session_state.df_limpio = limpiar_dataframe(
-            df,
-            eliminar_duplicados=eliminar_duplicados,
-            eliminar_filas_vacias=eliminar_filas_vacias,
-            rellenar_na=rellenar_na,
-            limpiar_espacios=limpiar_espacios,
-            texto_mayusculas=texto_mayusculas,
-            remover_especiales=remover_especiales,
-            corregir_numeros=corregir_numeros,
-            corregir_fechas=corregir_fechas,
-        )
+        resultado = {}
+        for nombre, tabla in tablas.items():
+            limpio, stats = limpiar_dataframe(
+                tabla,
+                eliminar_duplicados=eliminar_duplicados,
+                eliminar_filas_vacias=eliminar_filas_vacias,
+                eliminar_columnas_vacias=eliminar_columnas_vacias,
+                rellenar_na=rellenar_na,
+                limpiar_espacios=limpiar_espacios,
+                espacios_internos=espacios_internos,
+                modo_texto=modo_texto,
+                remover_especiales=remover_especiales,
+                corregir_numeros=corregir_numeros,
+                corregir_fechas=corregir_fechas,
+                normalizar_encabezados=normalizar_encabezados,
+            )
+            resultado[nombre] = {"original": tabla, "limpio": limpio, "stats": stats}
+        st.session_state.resultado = resultado
 
-df_limpio = st.session_state.get("df_limpio")
-if df_limpio is None:
+resultado = st.session_state.get("resultado")
+
+st.subheader("Vista previa")
+hoja_vista = (
+    hojas_elegidas[0]
+    if len(hojas_elegidas) == 1
+    else st.selectbox("Ver hoja", hojas_elegidas)
+)
+df = tablas[hoja_vista]
+c1, c2, c3 = st.columns(3)
+c1.metric("Filas", f"{df.shape[0]:,}")
+c2.metric("Columnas", f"{df.shape[1]:,}")
+c3.metric("Hojas", len(hojas_elegidas))
+
+if resultado is None:
+    st.dataframe(df.head(30), use_container_width=True)
     st.info("Ajusta los filtros y pulsa **Limpiar ahora**.")
     st.stop()
 
-filas_menos = df.shape[0] - df_limpio.shape[0]
-st.success("Tabla lista.")
-st.write(
-    f"**{df_limpio.shape[0]} filas** · **{df_limpio.shape[1]} columnas**"
-    + (f" · se quitaron **{filas_menos}** filas" if filas_menos else "")
-)
-st.dataframe(df_limpio.head(20), use_container_width=True)
+item = resultado[hoja_vista]
+df_limpio = item["limpio"]
+stats = item["stats"]
 
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Filas listas", f"{stats['filas_despues']:,}", delta=-(stats["filas_antes"] - stats["filas_despues"]))
+m2.metric("Duplicados quitados", stats["duplicados"])
+m3.metric("Filas vacías quitadas", stats["filas_vacias"])
+m4.metric("Columnas vacías quitadas", stats["cols_vacias"])
+
+antes, despues = st.tabs(["Original", "Limpio"])
+with antes:
+    st.dataframe(item["original"].head(30), use_container_width=True)
+with despues:
+    st.dataframe(df_limpio.head(30), use_container_width=True)
+
+nombre_salida = f"{Path(archivo.name).stem}_limpio.xlsx"
 st.download_button(
     label="Descargar Excel limpio",
-    data=excel_en_memoria(df_limpio),
-    file_name="datos_limpiados.xlsx",
+    data=excel_en_memoria({n: r["limpio"] for n, r in resultado.items()}),
+    file_name=nombre_salida,
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     use_container_width=True,
 )
