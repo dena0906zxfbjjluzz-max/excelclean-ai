@@ -166,14 +166,68 @@ def excel_en_memoria(hojas: dict[str, pd.DataFrame]) -> bytes:
     return buffer.getvalue()
 
 
+def borrar_editores() -> None:
+    for k in list(st.session_state.keys()):
+        if str(k).startswith("editor_"):
+            del st.session_state[k]
+
+
+def editor_excel(df: pd.DataFrame, clave: str, altura: int = 480) -> pd.DataFrame:
+    return st.data_editor(
+        df,
+        num_rows="dynamic",
+        use_container_width=True,
+        height=altura,
+        key=clave,
+        hide_index=True,
+    )
+
+
+def herramientas_columnas(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
+    c1, c2, c3 = st.columns([2, 1, 2])
+    with c1:
+        nueva = st.text_input(
+            "Nueva columna",
+            placeholder="Ej: OBSERVACION",
+            key=f"{prefijo}_nueva_col",
+        )
+    with c2:
+        st.write("")
+        st.write("")
+        if st.button("Agregar", key=f"{prefijo}_add_col") and nueva.strip():
+            nombre = nueva.strip()
+            if nombre not in df.columns:
+                df = df.copy()
+                df[nombre] = ""
+                guardar(df)
+                st.session_state.editor_ver = st.session_state.get("editor_ver", 0) + 1
+                borrar_editores()
+                st.rerun()
+    with c3:
+        if len(df.columns):
+            borrar = st.selectbox(
+                "Quitar columna",
+                ["(ninguna)"] + list(map(str, df.columns)),
+                key=f"{prefijo}_del_col",
+            )
+            if borrar != "(ninguna)" and st.button("Quitar", key=f"{prefijo}_del_btn"):
+                df = df.drop(columns=[borrar])
+                guardar(df)
+                st.session_state.editor_ver = st.session_state.get("editor_ver", 0) + 1
+                borrar_editores()
+                st.rerun()
+    return df
+
+
 st.title("📊 ExcelClean AI")
-st.write("Sube un Excel, elige hoja(s) y deja la tabla lista para trabajar.")
+st.write("Como Excel, pero aquí: editas celdas, agregas filas y luego limpias o descargas.")
 
 archivo = st.file_uploader("Sube tu archivo Excel (.xlsx)", type=["xlsx"])
 
 if archivo is None:
-    for k in ("df_original", "resultado", "archivo_nombre", "hojas_elegidas"):
+    for k in ("resultado", "archivo_nombre", "hojas_elegidas", "edit_src", "editor_ver"):
         st.session_state.pop(k, None)
+    borrar_editores()
     st.info("Arrastra un `.xlsx`. Sin contraseña: cada quien sube su archivo.")
     st.stop()
 
@@ -185,6 +239,9 @@ if peso_mb > MAX_MB:
 if st.session_state.get("archivo_nombre") != archivo.name:
     st.session_state.archivo_nombre = archivo.name
     st.session_state.pop("resultado", None)
+    st.session_state.pop("edit_src", None)
+    st.session_state.editor_ver = 0
+    borrar_editores()
 
 datos = archivo.getvalue()
 
@@ -221,6 +278,12 @@ except Exception as e:
     st.error(f"Error al leer la hoja: {e}")
     st.stop()
 
+if "edit_src" not in st.session_state:
+    st.session_state.edit_src = {}
+for h, tabla in tablas.items():
+    if h not in st.session_state.edit_src:
+        st.session_state.edit_src[h] = tabla.copy()
+
 st.sidebar.header("Filtros")
 
 st.sidebar.subheader("1. Filas y columnas")
@@ -256,7 +319,8 @@ corregir_fechas = st.sidebar.checkbox(
 if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
     with st.spinner("Tabulando y limpiando..."):
         resultado = {}
-        for nombre, tabla in tablas.items():
+        for nombre in hojas_elegidas:
+            tabla = st.session_state.edit_src.get(nombre, tablas[nombre])
             limpio, stats = limpiar_dataframe(
                 tabla,
                 eliminar_duplicados=eliminar_duplicados,
@@ -273,46 +337,75 @@ if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
             )
             resultado[nombre] = {"original": tabla, "limpio": limpio, "stats": stats}
         st.session_state.resultado = resultado
+        st.session_state.editor_ver = st.session_state.get("editor_ver", 0) + 1
+        borrar_editores()
 
 resultado = st.session_state.get("resultado")
+ver = st.session_state.get("editor_ver", 0)
 
-st.subheader("Vista previa")
+st.subheader("Tabla (editable)")
+st.caption("Haz clic en una celda para escribir. Abajo a la derecha puedes agregar o borrar filas.")
 hoja_vista = (
     hojas_elegidas[0]
     if len(hojas_elegidas) == 1
     else st.selectbox("Ver hoja", hojas_elegidas)
 )
-df = tablas[hoja_vista]
-c1, c2, c3 = st.columns(3)
-c1.metric("Filas", f"{df.shape[0]:,}")
-c2.metric("Columnas", f"{df.shape[1]:,}")
-c3.metric("Hojas", len(hojas_elegidas))
 
 if resultado is None:
-    st.dataframe(df.head(30), use_container_width=True)
-    st.info("Ajusta los filtros y pulsa **Limpiar ahora**.")
+    df = st.session_state.edit_src[hoja_vista]
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Filas", f"{df.shape[0]:,}")
+    c2.metric("Columnas", f"{df.shape[1]:,}")
+    c3.metric("Hojas", len(hojas_elegidas))
+    df = herramientas_columnas(
+        df,
+        f"src_{hoja_vista}_{ver}",
+        lambda t: st.session_state.edit_src.__setitem__(hoja_vista, t),
+    )
+    editado = editor_excel(df, f"editor_src_{hoja_vista}_{ver}")
+    st.session_state.edit_src[hoja_vista] = editado
+    st.info("Edita aquí como en Excel, o pulsa **Limpiar ahora**.")
+    st.download_button(
+        label="Descargar esta hoja",
+        data=excel_en_memoria({hoja_vista: editado}),
+        file_name=f"{Path(archivo.name).stem}_{hoja_vista}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
     st.stop()
 
 item = resultado[hoja_vista]
-df_limpio = item["limpio"]
 stats = item["stats"]
 
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("Filas listas", f"{stats['filas_despues']:,}", delta=-(stats["filas_antes"] - stats["filas_despues"]))
+m1.metric("Filas listas", f"{item['limpio'].shape[0]:,}", delta=-(stats["filas_antes"] - item["limpio"].shape[0]))
 m2.metric("Duplicados quitados", stats["duplicados"])
 m3.metric("Filas vacías quitadas", stats["filas_vacias"])
 m4.metric("Columnas vacías quitadas", stats["cols_vacias"])
 
-antes, despues = st.tabs(["Original", "Limpio"])
+antes, despues = st.tabs(["Original (editable)", "Limpio (editable)"])
 with antes:
-    st.dataframe(item["original"].head(30), use_container_width=True)
+    orig = herramientas_columnas(
+        item["original"],
+        f"orig_{hoja_vista}_{ver}",
+        lambda t: st.session_state.resultado[hoja_vista].__setitem__("original", t),
+    )
+    orig = editor_excel(orig, f"editor_orig_{hoja_vista}_{ver}")
+    st.session_state.resultado[hoja_vista]["original"] = orig
+    st.session_state.edit_src[hoja_vista] = orig
 with despues:
-    st.dataframe(df_limpio.head(30), use_container_width=True)
+    limpio = herramientas_columnas(
+        item["limpio"],
+        f"limpio_{hoja_vista}_{ver}",
+        lambda t: st.session_state.resultado[hoja_vista].__setitem__("limpio", t),
+    )
+    limpio = editor_excel(limpio, f"editor_limpio_{hoja_vista}_{ver}")
+    st.session_state.resultado[hoja_vista]["limpio"] = limpio
 
 nombre_salida = f"{Path(archivo.name).stem}_limpio.xlsx"
 st.download_button(
     label="Descargar Excel limpio",
-    data=excel_en_memoria({n: r["limpio"] for n, r in resultado.items()}),
+    data=excel_en_memoria({n: r["limpio"] for n, r in st.session_state.resultado.items()}),
     file_name=nombre_salida,
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     use_container_width=True,
