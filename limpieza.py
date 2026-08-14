@@ -84,19 +84,6 @@ def leer_hoja(datos: bytes, hoja: str) -> pd.DataFrame:
     return ids_a_texto(tabla)
 
 
-def filtrar_revision(df: pd.DataFrame, busqueda: str, columna: str, valor: str) -> pd.DataFrame:
-    vista = df
-    if busqueda.strip():
-        mask = vista.astype(str).apply(
-            lambda row: row.str.contains(busqueda, case=False, na=False).any(),
-            axis=1,
-        )
-        vista = vista[mask]
-    if columna != "(todas)" and valor != "TODOS":
-        vista = vista[vista[columna].astype(str) == str(valor)]
-    return vista
-
-
 def limpiar_dataframe(
     df: pd.DataFrame,
     *,

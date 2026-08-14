@@ -97,11 +97,11 @@ def excel_en_memoria(hojas: dict[str, pd.DataFrame]) -> bytes:
                 if pd.isna(valor):
                     valor = ""
                 ws.cell(row=r_idx, column=c_idx, value=valor)
-        titulo = f"Packing List — ExcelClean AI | {nombre}"
+        titulo = f"Excel limpio | {nombre}"
         aplicar_estilo_validador(ws, titulo, n_cols, len(df_out))
     if not wb.sheetnames:
         ws = wb.create_sheet("limpio")
-        aplicar_estilo_validador(ws, "Packing List — ExcelClean AI", 1, 0)
+        aplicar_estilo_validador(ws, "Excel limpio", 1, 0)
     buffer = io.BytesIO()
     wb.save(buffer)
     return buffer.getvalue()

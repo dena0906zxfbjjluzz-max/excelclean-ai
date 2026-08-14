@@ -7,7 +7,7 @@ import streamlit as st
 from estilo import aplicar_estilo, cabecera, marca_sidebar
 from excel_validador import excel_en_memoria
 from limpieza import MAX_MB, leer_hoja, limpiar_dataframe
-from ui_lote import borrar_editores, editar_en_cuadro
+from ui_lote import borrar_editores, editar_tabla
 
 st.set_page_config(page_title="ExcelClean AI", page_icon="📊", layout="wide")
 aplicar_estilo()
@@ -132,8 +132,7 @@ if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
 resultado = st.session_state.get("resultado")
 ver = st.session_state.get("editor_ver", 0)
 
-st.subheader("Tabla de revisión")
-st.caption("El Excel queda dentro del mismo cuadro de lote que usa Validador.")
+st.subheader("Tabla")
 hoja_vista = (
     hojas_elegidas[0]
     if len(hojas_elegidas) == 1
@@ -146,13 +145,11 @@ if resultado is None:
     c1.metric("Filas", f"{df.shape[0]:,}")
     c2.metric("Columnas", f"{df.shape[1]:,}")
     c3.metric("Hojas", len(hojas_elegidas))
-    editado = editar_en_cuadro(
+    editado = editar_tabla(
         df,
-        hoja_vista,
         f"src_{hoja_vista}_{ver}",
         lambda t: st.session_state.edit_src.__setitem__(hoja_vista, t),
     )
-    st.info("Revisa el lote en el cuadro o pulsa **Limpiar ahora**.")
     st.download_button(
         label="Descargar esta hoja",
         data=excel_en_memoria({hoja_vista: editado}),
@@ -175,19 +172,17 @@ m2.metric("Duplicados quitados", stats["duplicados"])
 m3.metric("Filas vacías quitadas", stats["filas_vacias"])
 m4.metric("Columnas vacías quitadas", stats["cols_vacias"])
 
-antes, despues = st.tabs(["Original (editable)", "Limpio (editable)"])
+antes, despues = st.tabs(["Original", "Limpio"])
 with antes:
-    orig = editar_en_cuadro(
+    orig = editar_tabla(
         item["original"],
-        hoja_vista,
         f"orig_{hoja_vista}_{ver}",
         lambda t: st.session_state.resultado[hoja_vista].__setitem__("original", t),
     )
     st.session_state.edit_src[hoja_vista] = orig
 with despues:
-    editar_en_cuadro(
+    editar_tabla(
         item["limpio"],
-        hoja_vista,
         f"limpio_{hoja_vista}_{ver}",
         lambda t: st.session_state.resultado[hoja_vista].__setitem__("limpio", t),
     )

@@ -20,8 +20,7 @@ def marca_sidebar() -> None:
     st.sidebar.markdown(
         """
         <div style="padding:0 0 0.7rem 0;margin-bottom:0.35rem;border-bottom:1px solid rgba(43,184,168,0.22)">
-          <p style="margin:0;font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#2BB8A8">Validador</p>
-          <p style="margin:0.12rem 0 0 0;font-size:0.82rem;font-weight:600;color:#EAF0F6">ExcelClean AI</p>
+          <p style="margin:0.12rem 0 0 0;font-size:0.95rem;font-weight:600;color:#EAF0F6">ExcelClean AI</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -32,7 +31,6 @@ def cabecera() -> None:
     st.markdown(
         """
         <div class="hero">
-          <p class="hero-kicker">Validador · packing y almacén</p>
           <h1>ExcelClean AI</h1>
         </div>
         """,
