@@ -4,16 +4,20 @@ html, body, .stApp {
   font-family: "IBM Plex Sans", sans-serif;
 }
 
-.stApp,
-[data-testid="stAppViewContainer"],
-[data-testid="stHeader"],
-section.main {
-  background: #0b1220 !important;
+.stApp {
+  background:
+    linear-gradient(100deg, #0b1220 0%, rgba(11, 18, 32, 0.92) 42%, rgba(11, 18, 32, 0.55) 100%),
+    url("data:image/jpeg;base64,__FONDO__") right center / cover no-repeat !important;
   color: #e8eef6;
 }
 
+[data-testid="stAppViewContainer"],
+section.main {
+  background: transparent !important;
+}
+
 [data-testid="stHeader"] {
-  background: #0b1220 !important;
+  background: rgba(11, 18, 32, 0.92) !important;
 }
 
 [data-testid="stSidebar"] {
