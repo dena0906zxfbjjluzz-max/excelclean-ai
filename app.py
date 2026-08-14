@@ -37,17 +37,19 @@ html, body, [class*="st-"], .stApp {
 }
 
 .hero {
-  border: 1px solid rgba(201, 162, 39, 0.28);
-  background: linear-gradient(145deg, rgba(18, 26, 42, 0.95), rgba(11, 18, 32, 0.88));
+  border: 1px solid rgba(43, 184, 168, 0.28);
+  background:
+    radial-gradient(ellipse 70% 80% at 0% 0%, rgba(43,184,168,0.16), transparent 55%),
+    linear-gradient(145deg, rgba(14, 22, 32, 0.94), rgba(10, 16, 24, 0.90));
   border-radius: 16px;
   padding: 1.35rem 1.5rem 1.2rem;
   margin-bottom: 1.1rem;
 }
 
 .hero-kicker {
-  color: #C9A227;
+  color: #2BB8A8;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   margin: 0 0 0.35rem 0;
@@ -71,17 +73,33 @@ html, body, [class*="st-"], .stApp {
   margin: 0.85rem 0 0.2rem 0;
   padding: 0.7rem 0.9rem;
   border-radius: 10px;
-  border: 1px solid rgba(201, 162, 39, 0.22);
-  background: rgba(18, 26, 42, 0.7);
+  border: 1px solid rgba(43, 184, 168, 0.22);
+  background: rgba(12, 18, 25, 0.78);
   color: #C9D4E3;
   font-size: 0.9rem;
 }
 
+.vx-filter-title {
+  margin: 0 0 0.15rem 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #2BB8A8;
+}
+
+.vx-filter-heading {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #EAF0F6;
+}
+
 [data-testid="stFileUploader"] {
-  border: 1px dashed rgba(201, 162, 39, 0.45);
+  border: 1px dashed rgba(43, 184, 168, 0.45);
   border-radius: 14px;
   padding: 0.85rem 1rem;
-  background: rgba(18, 26, 42, 0.65);
+  background: rgba(12, 18, 25, 0.72);
 }
 
 [data-testid="stFileUploader"] section {
@@ -163,8 +181,98 @@ def a_numero(serie: pd.Series) -> pd.Series:
     return pd.to_numeric(texto, errors="coerce")
 
 
+def es_columna_id(nombre: str) -> bool:
+    n = str(nombre).lower()
+    return any(k in n for k in ("id", "codigo", "código", "sscc", "ean", "sku"))
+
+
+def ids_a_texto(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    for col in out.columns:
+        if not es_columna_id(col):
+            continue
+        def _celda(v):
+            if pd.isna(v):
+                return ""
+            if isinstance(v, float) and v.is_integer():
+                return str(int(v))
+            s = str(v).strip()
+            if "e+" in s.lower() or "e-" in s.lower():
+                try:
+                    return str(int(float(s)))
+                except ValueError:
+                    return s
+            if s.endswith(".0"):
+                return s[:-2]
+            return s
+        out[col] = out[col].map(_celda)
+    return out
+
+
 def leer_hoja(datos: bytes, hoja: str) -> pd.DataFrame:
-    return pd.read_excel(io.BytesIO(datos), sheet_name=hoja, engine="openpyxl")
+    tabla = pd.read_excel(io.BytesIO(datos), sheet_name=hoja, engine="openpyxl")
+    return ids_a_texto(tabla)
+
+
+def config_columnas(df: pd.DataFrame) -> dict:
+    cfg = {}
+    for col in df.columns:
+        if es_columna_id(col):
+            cfg[col] = st.column_config.TextColumn(str(col), width="medium")
+    return cfg
+
+
+def filtrar_revision(df: pd.DataFrame, busqueda: str, columna: str, valor: str) -> pd.DataFrame:
+    vista = df
+    if busqueda.strip():
+        mask = vista.astype(str).apply(
+            lambda row: row.str.contains(busqueda, case=False, na=False).any(),
+            axis=1,
+        )
+        vista = vista[mask]
+    if columna != "(todas)" and valor != "TODOS":
+        vista = vista[vista[columna].astype(str) == str(valor)]
+    return vista
+
+
+def cuadro_filtro_validador(df: pd.DataFrame, clave: str) -> pd.DataFrame:
+    with st.container(border=True):
+        st.markdown(
+            '<p class="vx-filter-title">Validador · revisión</p>'
+            '<p class="vx-filter-heading">Filtros del lote (como en planta)</p>',
+            unsafe_allow_html=True,
+        )
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            busqueda = st.text_input(
+                "Búsqueda global (lote / producto / almacén)",
+                key=f"{clave}_busq",
+            )
+        with c2:
+            columna = st.selectbox(
+                "Filtrar por columna",
+                ["(todas)"] + list(map(str, df.columns)),
+                key=f"{clave}_col",
+            )
+        with c3:
+            if columna != "(todas)" and columna in df.columns:
+                unicos = (
+                    df[columna]
+                    .dropna()
+                    .astype(str)
+                    .replace({"": pd.NA})
+                    .dropna()
+                    .unique()
+                    .tolist()
+                )
+                unicos = sorted(unicos)[:400]
+                valor = st.selectbox("Valor", ["TODOS"] + unicos, key=f"{clave}_val")
+            else:
+                valor = "TODOS"
+                st.selectbox("Valor", ["TODOS"], key=f"{clave}_val_off", disabled=True)
+        vista = filtrar_revision(df, busqueda, columna, valor)
+        st.caption(f"Mostrando **{len(vista):,}** de **{len(df):,}** filas")
+    return vista
 
 
 def limpiar_dataframe(
@@ -284,14 +392,15 @@ def borrar_editores() -> None:
             del st.session_state[k]
 
 
-def editor_excel(df: pd.DataFrame, clave: str, altura: int = 480) -> pd.DataFrame:
+def editor_excel(df: pd.DataFrame, clave: str, altura: int = 520, filas="dynamic") -> pd.DataFrame:
     return st.data_editor(
         df,
-        num_rows="dynamic",
+        num_rows=filas,
         use_container_width=True,
         height=altura,
         key=clave,
         hide_index=True,
+        column_config=config_columnas(df),
     )
 
 
@@ -333,12 +442,23 @@ def herramientas_columnas(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFra
 
 aplicar_estilo()
 
+st.sidebar.markdown(
+    """
+    <div style="padding:0 0 0.9rem 0;margin-bottom:0.4rem;border-bottom:1px solid rgba(43,184,168,0.22)">
+      <p style="margin:0;font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#2BB8A8">Validador</p>
+      <p style="margin:0.15rem 0 0 0;font-size:1rem;font-weight:700;color:#EAF0F6">ExcelClean AI</p>
+      <p style="margin:0.2rem 0 0 0;font-size:0.75rem;color:#8A9BB0">Revisión de packing / almacén</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.markdown(
     """
 <div class="hero">
-  <p class="hero-kicker">Operación de datos</p>
+  <p class="hero-kicker">Validador · packing y almacén</p>
   <h1>ExcelClean AI</h1>
-  <p>Limpia y edita tablas como en Excel, con un flujo más directo: sube, corrige, descarga.</p>
+  <p>Misma lógica de revisión que en planta: busca, filtra el lote y edita la tabla como Excel.</p>
 </div>
 """,
     unsafe_allow_html=True,
@@ -468,8 +588,8 @@ if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
 resultado = st.session_state.get("resultado")
 ver = st.session_state.get("editor_ver", 0)
 
-st.subheader("Tabla (editable)")
-st.caption("Haz clic en una celda para escribir. Abajo a la derecha puedes agregar o borrar filas.")
+st.subheader("Tabla de revisión")
+st.caption("Filtros tipo Validador arriba. Clic en la celda para escribir. IDs se muestran completos, no en notación científica.")
 hoja_vista = (
     hojas_elegidas[0]
     if len(hojas_elegidas) == 1
@@ -487,9 +607,21 @@ if resultado is None:
         f"src_{hoja_vista}_{ver}",
         lambda t: st.session_state.edit_src.__setitem__(hoja_vista, t),
     )
-    editado = editor_excel(df, f"editor_src_{hoja_vista}_{ver}")
-    st.session_state.edit_src[hoja_vista] = editado
-    st.info("Edita aquí como en Excel, o pulsa **Limpiar ahora**.")
+    vista = cuadro_filtro_validador(df, f"filtro_src_{hoja_vista}_{ver}")
+    filas = "fixed" if len(vista) != len(df) else "dynamic"
+    editado_vista = editor_excel(vista, f"editor_src_{hoja_vista}_{ver}", filas=filas)
+    if len(vista) == len(df):
+        st.session_state.edit_src[hoja_vista] = editado_vista
+        editado = editado_vista
+    else:
+        base = df.copy()
+        comunes = editado_vista.index.intersection(base.index)
+        for col in editado_vista.columns:
+            if col in base.columns:
+                base.loc[comunes, col] = editado_vista.loc[comunes, col]
+        st.session_state.edit_src[hoja_vista] = base
+        editado = base
+    st.info("Revisa con los filtros o pulsa **Limpiar ahora**.")
     st.download_button(
         label="Descargar esta hoja",
         data=excel_en_memoria({hoja_vista: editado}),
@@ -515,7 +647,14 @@ with antes:
         f"orig_{hoja_vista}_{ver}",
         lambda t: st.session_state.resultado[hoja_vista].__setitem__("original", t),
     )
-    orig = editor_excel(orig, f"editor_orig_{hoja_vista}_{ver}")
+    vista_o = cuadro_filtro_validador(orig, f"filtro_orig_{hoja_vista}_{ver}")
+    orig_ed = editor_excel(
+        vista_o,
+        f"editor_orig_{hoja_vista}_{ver}",
+        filas="fixed" if len(vista_o) != len(orig) else "dynamic",
+    )
+    if len(vista_o) == len(orig):
+        orig = orig_ed
     st.session_state.resultado[hoja_vista]["original"] = orig
     st.session_state.edit_src[hoja_vista] = orig
 with despues:
@@ -524,7 +663,14 @@ with despues:
         f"limpio_{hoja_vista}_{ver}",
         lambda t: st.session_state.resultado[hoja_vista].__setitem__("limpio", t),
     )
-    limpio = editor_excel(limpio, f"editor_limpio_{hoja_vista}_{ver}")
+    vista_l = cuadro_filtro_validador(limpio, f"filtro_limpio_{hoja_vista}_{ver}")
+    limpio_ed = editor_excel(
+        vista_l,
+        f"editor_limpio_{hoja_vista}_{ver}",
+        filas="fixed" if len(vista_l) != len(limpio) else "dynamic",
+    )
+    if len(vista_l) == len(limpio):
+        limpio = limpio_ed
     st.session_state.resultado[hoja_vista]["limpio"] = limpio
 
 nombre_salida = f"{Path(archivo.name).stem}_limpio.xlsx"
