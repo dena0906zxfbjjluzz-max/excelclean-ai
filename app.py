@@ -1,3 +1,4 @@
+import base64
 import io
 import re
 from pathlib import Path
@@ -17,9 +18,8 @@ html, body, [class*="st-"], .stApp {
 
 .stApp {
   background:
-    radial-gradient(900px 420px at 8% -8%, rgba(201, 162, 39, 0.14), transparent 55%),
-    radial-gradient(800px 380px at 92% 0%, rgba(46, 90, 136, 0.22), transparent 50%),
-    linear-gradient(180deg, #0B1220 0%, #080E18 100%);
+    linear-gradient(105deg, rgba(11, 18, 32, 0.94) 0%, rgba(11, 18, 32, 0.82) 42%, rgba(11, 18, 32, 0.55) 100%),
+    url("data:image/jpeg;base64,__FONDO__") right center / cover no-repeat;
 }
 
 [data-testid="stHeader"] {
@@ -28,7 +28,7 @@ html, body, [class*="st-"], .stApp {
 }
 
 [data-testid="stSidebar"] {
-  background: #0E1626;
+  background: rgba(14, 22, 38, 0.94);
   border-right: 1px solid rgba(232, 238, 246, 0.08);
 }
 
@@ -109,8 +109,15 @@ div[data-testid="stMetric"] {
 """
 
 
+FONDO_PATH = Path(__file__).resolve().parent / "assets" / "fondo.jpg"
+
+
 def aplicar_estilo() -> None:
-    st.markdown(ESTILO, unsafe_allow_html=True)
+    css = ESTILO
+    if FONDO_PATH.exists():
+        foto = base64.b64encode(FONDO_PATH.read_bytes()).decode("ascii")
+        css = css.replace("__FONDO__", foto)
+    st.markdown(css, unsafe_allow_html=True)
 
 PALABRAS_NUMERO = (
     "monto",
