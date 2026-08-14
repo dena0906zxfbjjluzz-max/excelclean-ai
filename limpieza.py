@@ -35,6 +35,26 @@ FILAS_TOTAL = re.compile(
     re.IGNORECASE,
 )
 CARACTERES_TEXTO = r"[^a-zA-Z0-9\sñÑáéíóúÁÉÍÓÚüÜ]"
+INVISIBLES = "\u200b\u200c\u200d\ufeff"
+NULOS_TEXTO = {
+    "n/a",
+    "na",
+    "null",
+    "none",
+    "nil",
+    "nan",
+    "nd",
+    "n.d.",
+    "n.d",
+    "sin dato",
+    "sin datos",
+    "s/d",
+    "vacio",
+    "vacío",
+    "-",
+    "--",
+    "—",
+}
 MAX_MB = 25
 
 
@@ -121,11 +141,13 @@ def limpiar_celdas_texto(serie: pd.Series) -> pd.Series:
         return out
     texto = out.loc[mask].astype(str)
     texto = texto.str.replace("\u00a0", " ", regex=False)
-    texto = texto.str.replace(r"[\u200b\u200c\u200d\ufeff]", "", regex=True)
+    texto = texto.str.replace(f"[{INVISIBLES}]", "", regex=True)
     texto = texto.str.replace(r"[\r\n]+", " ", regex=True)
     texto = texto.str.strip()
     texto = texto.replace({"nan": None, "NaT": None, "None": None, "": None, "-": None})
-    vacios = texto.isna() | texto.astype(str).str.lower().isin(ERRORES_EXCEL)
+    vacios = texto.isna() | texto.astype(str).str.strip().str.lower().isin(
+        set(ERRORES_EXCEL) | NULOS_TEXTO
+    )
     texto = texto.mask(vacios, None)
     out.loc[mask] = texto
     return out
@@ -155,6 +177,59 @@ def columnas_compatibles(df: pd.DataFrame) -> pd.DataFrame:
     return out.reset_index(drop=True)
 
 
+def convertir_porcentajes(serie: pd.Series) -> pd.Series:
+    texto = serie.astype(str).str.strip()
+    es_pct = texto.str.contains("%", na=False)
+    if not es_pct.any():
+        return serie
+    out = serie.copy()
+    nums = texto.str.replace("%", "", regex=False).str.replace(",", ".", regex=False)
+    nums = pd.to_numeric(nums, errors="coerce")
+    out.loc[es_pct] = nums.loc[es_pct]
+    return out
+
+
+def normalizar_si_no_serie(serie: pd.Series) -> pd.Series:
+    mapa = {
+        "si": "SI",
+        "sí": "SI",
+        "s": "SI",
+        "yes": "SI",
+        "y": "SI",
+        "true": "SI",
+        "1": "SI",
+        "no": "NO",
+        "n": "NO",
+        "false": "NO",
+        "0": "NO",
+    }
+    out = serie.astype(object)
+    mask = out.notna()
+    claves = out.loc[mask].astype(str).str.strip().str.lower()
+    reemplazo = claves.map(mapa)
+    aplicar = reemplazo.notna()
+    out.loc[mask & aplicar] = reemplazo.loc[aplicar]
+    return out
+
+
+def quitar_columnas_iguales(df: pd.DataFrame) -> pd.DataFrame:
+    if df.shape[1] < 2:
+        return df
+    keep = []
+    vistos = []
+    for col in df.columns:
+        serie = df[col]
+        duplicada = False
+        for otra in vistos:
+            if serie.equals(otra):
+                duplicada = True
+                break
+        if not duplicada:
+            keep.append(col)
+            vistos.append(serie)
+    return df.loc[:, keep]
+
+
 def es_fila_total(fila: pd.Series) -> bool:
     for val in fila.tolist():
         if pd.isna(val):
@@ -181,8 +256,12 @@ def limpiar_dataframe(
     quitar_errores_excel: bool,
     quitar_filas_total: bool,
     rellenar_hacia_abajo: bool,
+    quitar_nulos_texto: bool = True,
+    quitar_columnas_duplicadas: bool = True,
+    convertir_pct: bool = True,
+    normalizar_si_no: bool = False,
 ) -> tuple[pd.DataFrame, dict]:
-    df_limpio = df.copy()
+    df_limpio = ids_a_texto(df.copy())
     stats = {
         "filas_antes": int(df.shape[0]),
         "cols_antes": int(df.shape[1]),
@@ -191,6 +270,7 @@ def limpiar_dataframe(
         "cols_vacias": 0,
         "filas_total": 0,
         "errores_excel": 0,
+        "cols_dup": 0,
     }
 
     if normalizar_encabezados:
@@ -240,6 +320,38 @@ def limpiar_dataframe(
         antes = len(df_limpio)
         df_limpio = df_limpio.drop_duplicates()
         stats["duplicados"] = antes - len(df_limpio)
+
+    if quitar_nulos_texto:
+        for col in df_limpio.columns:
+            if pd.api.types.is_datetime64_any_dtype(df_limpio[col]):
+                continue
+            if pd.api.types.is_numeric_dtype(df_limpio[col]):
+                continue
+            s = df_limpio[col].astype(object)
+            mask = s.notna()
+            if mask.any():
+                bajo = s.loc[mask].astype(str).str.strip().str.lower()
+                s.loc[mask & bajo.isin(NULOS_TEXTO)] = None
+                df_limpio[col] = s
+
+    if quitar_columnas_duplicadas:
+        antes = df_limpio.shape[1]
+        df_limpio = quitar_columnas_iguales(df_limpio)
+        stats["cols_dup"] = antes - df_limpio.shape[1]
+
+    if convertir_pct:
+        for col in df_limpio.columns:
+            if pd.api.types.is_datetime64_any_dtype(df_limpio[col]):
+                continue
+            df_limpio[col] = convertir_porcentajes(df_limpio[col])
+
+    if normalizar_si_no:
+        for col in df_limpio.columns:
+            if pd.api.types.is_datetime64_any_dtype(df_limpio[col]):
+                continue
+            if pd.api.types.is_numeric_dtype(df_limpio[col]):
+                continue
+            df_limpio[col] = normalizar_si_no_serie(df_limpio[col])
 
     for col in df_limpio.columns:
         serie = df_limpio[col]

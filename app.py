@@ -115,6 +115,14 @@ quitar_filas_total = st.sidebar.checkbox(
 rellenar_hacia_abajo = st.sidebar.checkbox(
     "Rellenar celdas vacías con el valor de arriba"
 )
+quitar_nulos_texto = st.sidebar.checkbox(
+    "Tratar NULL / n/a / sin dato como vacío", value=True
+)
+quitar_columnas_duplicadas = st.sidebar.checkbox(
+    "Quitar columnas idénticas", value=True
+)
+convertir_pct = st.sidebar.checkbox("Convertir porcentajes (12% → 12)", value=True)
+normalizar_si_no = st.sidebar.checkbox("Unificar SI / NO")
 
 if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
     with st.spinner("Tabulando y limpiando..."):
@@ -138,6 +146,10 @@ if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
                     quitar_errores_excel=quitar_errores_excel,
                     quitar_filas_total=quitar_filas_total,
                     rellenar_hacia_abajo=rellenar_hacia_abajo,
+                    quitar_nulos_texto=quitar_nulos_texto,
+                    quitar_columnas_duplicadas=quitar_columnas_duplicadas,
+                    convertir_pct=convertir_pct,
+                    normalizar_si_no=normalizar_si_no,
                 )
             except Exception as e:
                 st.error(f"No se pudo limpiar la hoja `{nombre}`: {e}")
