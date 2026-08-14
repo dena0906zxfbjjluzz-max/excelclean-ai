@@ -1,4 +1,5 @@
 import base64
+import html
 import io
 import re
 from pathlib import Path
@@ -81,18 +82,50 @@ html, body, [class*="st-"], .stApp {
 
 .vx-filter-title {
   margin: 0 0 0.15rem 0;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #2BB8A8;
+  color: #8A9BB0;
 }
 
 .vx-filter-heading {
   margin: 0 0 0.75rem 0;
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   font-weight: 700;
   color: #EAF0F6;
+}
+
+.sb-card-title {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8A9BB0;
+  font-weight: 700;
+  margin: 0 0 0.3rem 0;
+}
+
+.sb-card-heading {
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: #EAF0F6;
+  margin: 0 0 0.85rem 0;
+  line-height: 1.3;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"] {
+  background: #0C1219 !important;
+  border: 1px solid #1A2636 !important;
+  border-radius: 12px !important;
+  padding: 1rem 1.15rem 1.2rem !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+[data-testid="stDataFrame"] {
+  border: 1px solid #1A2636 !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  background: #090E15 !important;
 }
 
 [data-testid="stFileUploader"] {
@@ -236,43 +269,66 @@ def filtrar_revision(df: pd.DataFrame, busqueda: str, columna: str, valor: str) 
 
 
 def cuadro_filtro_validador(df: pd.DataFrame, clave: str) -> pd.DataFrame:
+    st.markdown(
+        '<p class="vx-filter-title">Revisión de lote</p>'
+        '<p class="vx-filter-heading">Buscar y filtrar (Validador)</p>',
+        unsafe_allow_html=True,
+    )
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        busqueda = st.text_input(
+            "Búsqueda global (lote / producto / almacén)",
+            key=f"{clave}_busq",
+        )
+    with c2:
+        columna = st.selectbox(
+            "Filtrar por columna",
+            ["(todas)"] + list(map(str, df.columns)),
+            key=f"{clave}_col",
+        )
+    with c3:
+        if columna != "(todas)" and columna in df.columns:
+            unicos = (
+                df[columna]
+                .dropna()
+                .astype(str)
+                .replace({"": pd.NA})
+                .dropna()
+                .unique()
+                .tolist()
+            )
+            unicos = sorted(unicos)[:400]
+            valor = st.selectbox("Valor", ["TODOS"] + unicos, key=f"{clave}_val")
+        else:
+            valor = "TODOS"
+            st.selectbox("Valor", ["TODOS"], key=f"{clave}_val_off", disabled=True)
+    vista = filtrar_revision(df, busqueda, columna, valor)
+    st.caption(f"Mostrando **{len(vista):,}** de **{len(df):,}** filas")
+    return vista
+
+
+def editar_en_cuadro(df: pd.DataFrame, hoja: str, prefijo: str, guardar) -> pd.DataFrame:
+    hoja_txt = html.escape(str(hoja))
     with st.container(border=True):
         st.markdown(
-            '<p class="vx-filter-title">Validador · revisión</p>'
-            '<p class="vx-filter-heading">Filtros del lote (como en planta)</p>',
+            f'<p class="sb-card-title">Excel · almacén / packing</p>'
+            f'<p class="sb-card-heading">{hoja_txt}</p>',
             unsafe_allow_html=True,
         )
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            busqueda = st.text_input(
-                "Búsqueda global (lote / producto / almacén)",
-                key=f"{clave}_busq",
-            )
-        with c2:
-            columna = st.selectbox(
-                "Filtrar por columna",
-                ["(todas)"] + list(map(str, df.columns)),
-                key=f"{clave}_col",
-            )
-        with c3:
-            if columna != "(todas)" and columna in df.columns:
-                unicos = (
-                    df[columna]
-                    .dropna()
-                    .astype(str)
-                    .replace({"": pd.NA})
-                    .dropna()
-                    .unique()
-                    .tolist()
-                )
-                unicos = sorted(unicos)[:400]
-                valor = st.selectbox("Valor", ["TODOS"] + unicos, key=f"{clave}_val")
-            else:
-                valor = "TODOS"
-                st.selectbox("Valor", ["TODOS"], key=f"{clave}_val_off", disabled=True)
-        vista = filtrar_revision(df, busqueda, columna, valor)
-        st.caption(f"Mostrando **{len(vista):,}** de **{len(df):,}** filas")
-    return vista
+        df = herramientas_columnas(df, prefijo, guardar)
+        vista = cuadro_filtro_validador(df, f"filtro_{prefijo}")
+        filas = "fixed" if len(vista) != len(df) else "dynamic"
+        editado_vista = editor_excel(vista, f"editor_{prefijo}", filas=filas)
+        if len(vista) == len(df):
+            guardar(editado_vista)
+            return editado_vista
+        base = df.copy()
+        comunes = editado_vista.index.intersection(base.index)
+        for col in editado_vista.columns:
+            if col in base.columns:
+                base.loc[comunes, col] = editado_vista.loc[comunes, col]
+        guardar(base)
+        return base
 
 
 def limpiar_dataframe(
@@ -589,7 +645,7 @@ resultado = st.session_state.get("resultado")
 ver = st.session_state.get("editor_ver", 0)
 
 st.subheader("Tabla de revisión")
-st.caption("Filtros tipo Validador arriba. Clic en la celda para escribir. IDs se muestran completos, no en notación científica.")
+st.caption("El Excel queda dentro del mismo cuadro de lote que usa Validador.")
 hoja_vista = (
     hojas_elegidas[0]
     if len(hojas_elegidas) == 1
@@ -602,26 +658,13 @@ if resultado is None:
     c1.metric("Filas", f"{df.shape[0]:,}")
     c2.metric("Columnas", f"{df.shape[1]:,}")
     c3.metric("Hojas", len(hojas_elegidas))
-    df = herramientas_columnas(
+    editado = editar_en_cuadro(
         df,
+        hoja_vista,
         f"src_{hoja_vista}_{ver}",
         lambda t: st.session_state.edit_src.__setitem__(hoja_vista, t),
     )
-    vista = cuadro_filtro_validador(df, f"filtro_src_{hoja_vista}_{ver}")
-    filas = "fixed" if len(vista) != len(df) else "dynamic"
-    editado_vista = editor_excel(vista, f"editor_src_{hoja_vista}_{ver}", filas=filas)
-    if len(vista) == len(df):
-        st.session_state.edit_src[hoja_vista] = editado_vista
-        editado = editado_vista
-    else:
-        base = df.copy()
-        comunes = editado_vista.index.intersection(base.index)
-        for col in editado_vista.columns:
-            if col in base.columns:
-                base.loc[comunes, col] = editado_vista.loc[comunes, col]
-        st.session_state.edit_src[hoja_vista] = base
-        editado = base
-    st.info("Revisa con los filtros o pulsa **Limpiar ahora**.")
+    st.info("Revisa el lote en el cuadro o pulsa **Limpiar ahora**.")
     st.download_button(
         label="Descargar esta hoja",
         data=excel_en_memoria({hoja_vista: editado}),
@@ -642,36 +685,20 @@ m4.metric("Columnas vacías quitadas", stats["cols_vacias"])
 
 antes, despues = st.tabs(["Original (editable)", "Limpio (editable)"])
 with antes:
-    orig = herramientas_columnas(
+    orig = editar_en_cuadro(
         item["original"],
+        hoja_vista,
         f"orig_{hoja_vista}_{ver}",
         lambda t: st.session_state.resultado[hoja_vista].__setitem__("original", t),
     )
-    vista_o = cuadro_filtro_validador(orig, f"filtro_orig_{hoja_vista}_{ver}")
-    orig_ed = editor_excel(
-        vista_o,
-        f"editor_orig_{hoja_vista}_{ver}",
-        filas="fixed" if len(vista_o) != len(orig) else "dynamic",
-    )
-    if len(vista_o) == len(orig):
-        orig = orig_ed
-    st.session_state.resultado[hoja_vista]["original"] = orig
     st.session_state.edit_src[hoja_vista] = orig
 with despues:
-    limpio = herramientas_columnas(
+    editar_en_cuadro(
         item["limpio"],
+        hoja_vista,
         f"limpio_{hoja_vista}_{ver}",
         lambda t: st.session_state.resultado[hoja_vista].__setitem__("limpio", t),
     )
-    vista_l = cuadro_filtro_validador(limpio, f"filtro_limpio_{hoja_vista}_{ver}")
-    limpio_ed = editor_excel(
-        vista_l,
-        f"editor_limpio_{hoja_vista}_{ver}",
-        filas="fixed" if len(vista_l) != len(limpio) else "dynamic",
-    )
-    if len(vista_l) == len(limpio):
-        limpio = limpio_ed
-    st.session_state.resultado[hoja_vista]["limpio"] = limpio
 
 nombre_salida = f"{Path(archivo.name).stem}_limpio.xlsx"
 st.download_button(
