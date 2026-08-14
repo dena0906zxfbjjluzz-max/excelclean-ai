@@ -19,9 +19,9 @@ def aplicar_estilo() -> None:
 def marca_sidebar() -> None:
     st.sidebar.markdown(
         """
-        <div style="padding:0 0 0.85rem 0;margin-bottom:0.5rem;border-bottom:1px solid #1e2a3d">
-          <p style="margin:0;font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#2bb8a8">Herramienta</p>
-          <p style="margin:0.2rem 0 0 0;font-size:1rem;font-weight:700;color:#e8eef6">ExcelClean AI</p>
+        <div style="padding:0 0 0.85rem 0;margin-bottom:0.5rem;border-bottom:1px solid rgba(28,36,31,0.14)">
+          <p style="margin:0;font-size:0.68rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#2F6F5E">Herramienta</p>
+          <p style="margin:0.2rem 0 0 0;font-size:1.05rem;font-weight:700;color:#152018">ExcelClean AI</p>
         </div>
         """,
         unsafe_allow_html=True,
