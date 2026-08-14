@@ -121,23 +121,27 @@ if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
         resultado = {}
         for nombre in hojas_elegidas:
             tabla = st.session_state.edit_src.get(nombre, tablas[nombre])
-            limpio, stats = limpiar_dataframe(
-                tabla,
-                eliminar_duplicados=eliminar_duplicados,
-                eliminar_filas_vacias=eliminar_filas_vacias,
-                eliminar_columnas_vacias=eliminar_columnas_vacias,
-                rellenar_na=rellenar_na,
-                limpiar_espacios=limpiar_espacios,
-                espacios_internos=espacios_internos,
-                modo_texto=modo_texto,
-                remover_especiales=remover_especiales,
-                corregir_numeros=corregir_numeros,
-                corregir_fechas=corregir_fechas,
-                normalizar_encabezados=normalizar_encabezados,
-                quitar_errores_excel=quitar_errores_excel,
-                quitar_filas_total=quitar_filas_total,
-                rellenar_hacia_abajo=rellenar_hacia_abajo,
-            )
+            try:
+                limpio, stats = limpiar_dataframe(
+                    tabla,
+                    eliminar_duplicados=eliminar_duplicados,
+                    eliminar_filas_vacias=eliminar_filas_vacias,
+                    eliminar_columnas_vacias=eliminar_columnas_vacias,
+                    rellenar_na=rellenar_na,
+                    limpiar_espacios=limpiar_espacios,
+                    espacios_internos=espacios_internos,
+                    modo_texto=modo_texto,
+                    remover_especiales=remover_especiales,
+                    corregir_numeros=corregir_numeros,
+                    corregir_fechas=corregir_fechas,
+                    normalizar_encabezados=normalizar_encabezados,
+                    quitar_errores_excel=quitar_errores_excel,
+                    quitar_filas_total=quitar_filas_total,
+                    rellenar_hacia_abajo=rellenar_hacia_abajo,
+                )
+            except Exception as e:
+                st.error(f"No se pudo limpiar la hoja `{nombre}`: {e}")
+                st.stop()
             resultado[nombre] = {"original": tabla, "limpio": limpio, "stats": stats}
         st.session_state.resultado = resultado
         st.session_state.editor_ver = st.session_state.get("editor_ver", 0) + 1

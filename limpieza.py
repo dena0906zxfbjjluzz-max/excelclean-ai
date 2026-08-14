@@ -115,15 +115,44 @@ def parece_columna_numerica(serie: pd.Series) -> bool:
 
 
 def limpiar_celdas_texto(serie: pd.Series) -> pd.Series:
-    texto = serie.astype("string")
+    out = serie.astype(object)
+    mask = out.notna()
+    if not mask.any():
+        return out
+    texto = out.loc[mask].astype(str)
     texto = texto.str.replace("\u00a0", " ", regex=False)
     texto = texto.str.replace(r"[\u200b\u200c\u200d\ufeff]", "", regex=True)
     texto = texto.str.replace(r"[\r\n]+", " ", regex=True)
     texto = texto.str.strip()
-    errores = texto.str.lower().isin(ERRORES_EXCEL)
-    texto = texto.mask(errores, pd.NA)
-    texto = texto.replace({"": pd.NA, "nan": pd.NA, "None": pd.NA, "-": pd.NA})
-    return texto
+    texto = texto.replace({"nan": None, "NaT": None, "None": None, "": None, "-": None})
+    vacios = texto.isna() | texto.astype(str).str.lower().isin(ERRORES_EXCEL)
+    texto = texto.mask(vacios, None)
+    out.loc[mask] = texto
+    return out
+
+
+def _es_vacio(v) -> bool:
+    if v is None:
+        return True
+    try:
+        return bool(pd.isna(v))
+    except (ValueError, TypeError):
+        return False
+
+
+def columnas_compatibles(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    out.columns = [str(c) for c in out.columns]
+    for col in out.columns:
+        serie = out[col]
+        if pd.api.types.is_datetime64_any_dtype(serie):
+            out[col] = pd.to_datetime(serie, errors="coerce").dt.strftime("%Y-%m-%d")
+            continue
+        if pd.api.types.is_numeric_dtype(serie):
+            out[col] = pd.to_numeric(serie, errors="coerce")
+            continue
+        out[col] = [None if _es_vacio(v) else v for v in serie.tolist()]
+    return out.reset_index(drop=True)
 
 
 def es_fila_total(fila: pd.Series) -> bool:
@@ -180,6 +209,10 @@ def limpiar_dataframe(
 
     if quitar_errores_excel or limpiar_espacios:
         for col in df_limpio.columns:
+            if pd.api.types.is_datetime64_any_dtype(df_limpio[col]):
+                continue
+            if pd.api.types.is_numeric_dtype(df_limpio[col]):
+                continue
             if df_limpio[col].dtype == "object" or pd.api.types.is_string_dtype(df_limpio[col]):
                 antes_na = df_limpio[col].isna().sum()
                 df_limpio[col] = limpiar_celdas_texto(df_limpio[col])
@@ -256,6 +289,7 @@ def limpiar_dataframe(
     if rellenar_na:
         df_limpio = df_limpio.fillna("N/A")
 
+    df_limpio = columnas_compatibles(df_limpio)
     stats["filas_despues"] = int(df_limpio.shape[0])
     stats["cols_despues"] = int(df_limpio.shape[1])
     return df_limpio, stats
