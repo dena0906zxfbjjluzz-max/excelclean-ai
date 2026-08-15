@@ -139,14 +139,6 @@ section.main [data-testid="stMarkdownContainer"] p {
   padding: 0 !important;
 }
 
-.excel-bar {
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(28, 36, 31, 0.12);
-  border-radius: 10px;
-  padding: 0.55rem 0.75rem 0.15rem;
-  margin-bottom: 0.65rem;
-}
-
 [data-testid="stDataFrame"] {
   border: 1px solid rgba(28, 36, 31, 0.14) !important;
   border-radius: 8px !important;

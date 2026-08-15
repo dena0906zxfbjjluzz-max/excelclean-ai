@@ -68,8 +68,6 @@ def excel_en_memoria(hojas: dict[str, pd.DataFrame]) -> bytes:
     for nombre, tabla in hojas.items():
         hoja = re.sub(r"[\\/*?:\[\]]", "_", str(nombre))[:31] or "limpio"
         df_out = tabla.copy() if tabla is not None else pd.DataFrame()
-        if "Sel" in df_out.columns:
-            df_out = df_out.drop(columns=["Sel"])
         if df_out.empty and df_out.columns.empty:
             df_out = pd.DataFrame({"Aviso": ["Sin datos"]})
         ws = wb.create_sheet(title=hoja)

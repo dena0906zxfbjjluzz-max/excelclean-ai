@@ -32,7 +32,7 @@ def cabecera() -> None:
         """
         <div class="hero">
           <p class="hero-kicker">#ExcelClean</p>
-          <h1>ExcelClean<br>AI</h1>
+          <h1>ExcelClean AI</h1>
           <p>Sube un Excel, aplica filtros y descarga la tabla lista para enviar.</p>
         </div>
         """,
