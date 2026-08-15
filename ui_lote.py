@@ -22,9 +22,27 @@ def _guardar_y_refrescar(df: pd.DataFrame, guardar) -> None:
     st.rerun()
 
 
+COL_SEL = "Sel"
+
+
+def quitar_marca(df: pd.DataFrame) -> pd.DataFrame:
+    if COL_SEL in df.columns:
+        return df.drop(columns=[COL_SEL])
+    return df
+
+
 def config_columnas(df: pd.DataFrame) -> dict:
-    cfg = {}
+    cfg = {
+        COL_SEL: st.column_config.CheckboxColumn(
+            "Sel",
+            help="Marca la fila y pulsa Eliminar filas marcadas",
+            default=False,
+            width="small",
+        )
+    }
     for col in df.columns:
+        if col == COL_SEL:
+            continue
         if es_columna_id(col):
             cfg[col] = st.column_config.TextColumn(str(col), width="medium")
     return cfg
@@ -35,8 +53,9 @@ def altura_tabla(df: pd.DataFrame) -> int:
     return int(min(560, 42 + n * 35))
 
 
-def editor_excel(df: pd.DataFrame, clave: str) -> pd.DataFrame:
-    vista = columnas_compatibles(df).copy()
+def editor_excel(df: pd.DataFrame, clave: str) -> tuple[pd.DataFrame, pd.Series]:
+    vista = quitar_marca(columnas_compatibles(df)).copy()
+    vista.insert(0, COL_SEL, False)
     vista.index = range(1, len(vista) + 1)
     editado = st.data_editor(
         vista,
@@ -47,7 +66,14 @@ def editor_excel(df: pd.DataFrame, clave: str) -> pd.DataFrame:
         hide_index=False,
         column_config=config_columnas(vista),
     )
-    return editado.reset_index(drop=True)
+    marcas = (
+        editado[COL_SEL].fillna(False).astype(bool)
+        if COL_SEL in editado.columns
+        else pd.Series(False, index=editado.index)
+    )
+    limpio = quitar_marca(editado).reset_index(drop=True)
+    marcas = marcas.reset_index(drop=True)
+    return limpio, marcas
 
 
 def insertar_fila(df: pd.DataFrame, fila_1: int, abajo: bool) -> pd.DataFrame:
@@ -139,7 +165,8 @@ def barra_excel(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
             except Exception as e:
                 st.error(str(e))
     st.caption(
-        "Como Excel: elige la **fila**, inserta arriba o abajo, y usa =SUMA() =PROMEDIO() =MAX() =MIN() =CONTAR()."
+        "Marca **Sel** en la fila (como en Excel) y pulsa **Eliminar marcadas**. "
+        "También puedes poner el número de fila y usar Fila arriba / abajo / Borrar."
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -172,7 +199,12 @@ def barra_excel(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
 
 
 def editar_tabla(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
-    df = barra_excel(df, prefijo, guardar)
-    editado = editor_excel(df, f"editor_{prefijo}")
+    df = barra_excel(quitar_marca(df), prefijo, guardar)
+    editado, marcas = editor_excel(df, f"editor_{prefijo}")
     guardar(editado)
+    if st.button("Eliminar filas marcadas", key=f"{prefijo}_del_sel", type="primary"):
+        if marcas.any():
+            _guardar_y_refrescar(editado.loc[~marcas.to_numpy()].reset_index(drop=True), guardar)
+        else:
+            st.warning("Marca la casilla Sel de la fila que quieres borrar.")
     return editado
