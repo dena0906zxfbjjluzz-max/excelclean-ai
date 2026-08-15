@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from limpieza import es_columna_id
+from limpieza import columnas_compatibles, es_columna_id
 
 
 def borrar_editores() -> None:
@@ -20,7 +20,7 @@ def config_columnas(df: pd.DataFrame) -> dict:
 
 def editor_excel(df: pd.DataFrame, clave: str, altura: int = 520) -> pd.DataFrame:
     return st.data_editor(
-        df,
+        columnas_compatibles(df),
         num_rows="dynamic",
         use_container_width=True,
         height=altura,

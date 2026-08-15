@@ -1,71 +1,95 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
 
-html, body, .stApp {
+html, body, .stApp, [data-testid="stAppViewContainer"], section.main {
   font-family: "IBM Plex Sans", sans-serif;
-}
-
-.stApp {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 45%, rgba(18, 28, 22, 0.10) 100%),
-    url("data:image/png;base64,__FONDO__") center top / cover no-repeat fixed !important;
+  min-height: 100vh;
+  background: #c9c4bc !important;
   color: #1c241f;
 }
 
+/* Foto a tamaño de ventana, proporción original: no se estira. */
+.stApp::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: #c9c4bc;
+  background-image: url("__FONDO__");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+[data-testid="stHeader"],
 [data-testid="stAppViewContainer"],
-section.main {
+[data-testid="stSidebar"],
+[data-testid="stBottomBlockContainer"] {
+  position: relative;
+  z-index: 1;
+}
+
+[data-testid="stAppViewContainer"],
+section.main,
+[data-testid="stAppViewContainer"] > .main,
+.block-container {
   background: transparent !important;
 }
 
 [data-testid="stHeader"] {
-  background: rgba(255, 255, 255, 0.35) !important;
-  backdrop-filter: blur(10px);
+  background: transparent !important;
+}
+
+[data-testid="stToolbar"] {
+  background: transparent !important;
 }
 
 [data-testid="stSidebar"] {
-  background: rgba(255, 255, 255, 0.78) !important;
-  backdrop-filter: blur(18px);
-  border-right: 1px solid rgba(28, 36, 31, 0.12);
+  background: rgba(255, 255, 255, 0.28) !important;
+  backdrop-filter: blur(8px);
+  border-right: 1px solid rgba(28, 36, 31, 0.1);
 }
 
 .hero {
   margin: 0 0 1.15rem 0;
-  padding: 1.15rem 1.35rem 1.05rem;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 10px 30px rgba(20, 30, 24, 0.08);
+  padding: 0.35rem 0 0.85rem;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .hero-kicker {
-  margin: 0 0 0.3rem 0;
-  color: #2f6f5e;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  margin: 0 0 0.35rem 0;
+  color: #1c241f;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .hero h1 {
   margin: 0;
-  font-size: 1.7rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 2.55rem;
   font-weight: 700;
-  color: #152018;
-  letter-spacing: -0.03em;
+  color: #2a332c;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 0.95;
 }
 
 .hero p {
-  margin: 0.4rem 0 0 0;
-  color: #3d4a42;
-  font-size: 0.95rem;
+  margin: 0.55rem 0 0 0;
+  max-width: 28rem;
+  color: #2a332c;
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 [data-testid="stFileUploader"] {
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 14px;
-  padding: 0.85rem 1rem;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
+  border: 1px solid rgba(42, 51, 44, 0.18);
+  border-radius: 4px;
+  padding: 0.65rem 0.85rem;
+  background: rgba(255, 255, 255, 0.28);
 }
 
 [data-testid="stFileUploader"] section {
@@ -74,28 +98,29 @@ section.main {
 }
 
 [data-testid="stDataFrame"] {
-  border: 1px solid rgba(28, 36, 31, 0.12) !important;
-  border-radius: 10px !important;
+  border: 1px solid rgba(28, 36, 31, 0.14) !important;
+  border-radius: 2px !important;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.82) !important;
+  background: rgba(255, 255, 255, 0.38) !important;
 }
 
 div[data-testid="stMetric"] {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(28, 36, 31, 0.1);
-  border-radius: 12px;
-  padding: 0.55rem 0.75rem;
+  background: transparent;
+  border: none;
+  padding: 0.2rem 0;
 }
 
 .stButton > button,
 .stDownloadButton > button {
-  border-radius: 8px;
+  border-radius: 2px;
   font-weight: 600;
+  background: rgba(255, 255, 255, 0.55) !important;
+  color: #1c241f !important;
+  border: 1px solid rgba(28, 36, 31, 0.18) !important;
 }
 
 [data-testid="stVerticalBlockBorderWrapper"] {
-  background: rgba(255, 255, 255, 0.72) !important;
-  border: 1px solid rgba(255, 255, 255, 0.8) !important;
-  border-radius: 14px !important;
-  backdrop-filter: blur(12px);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }

@@ -173,7 +173,10 @@ def columnas_compatibles(df: pd.DataFrame) -> pd.DataFrame:
         if pd.api.types.is_numeric_dtype(serie):
             out[col] = pd.to_numeric(serie, errors="coerce")
             continue
-        out[col] = [None if _es_vacio(v) else v for v in serie.tolist()]
+        out[col] = [
+            "" if _es_vacio(v) or str(v).strip().lower() in ("none", "nan", "nat") else v
+            for v in serie.tolist()
+        ]
     return out.reset_index(drop=True)
 
 

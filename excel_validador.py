@@ -76,7 +76,7 @@ def excel_en_memoria(hojas: dict[str, pd.DataFrame]) -> bytes:
             ws.cell(row=1, column=c, value=str(col_name))
         for r_idx, row in enumerate(df_out.itertuples(index=False), start=2):
             for c_idx, valor in enumerate(row, start=1):
-                if pd.isna(valor):
+                if pd.isna(valor) or str(valor).strip().lower() in ("none", "nan", "nat"):
                     valor = ""
                 ws.cell(row=r_idx, column=c_idx, value=valor)
         aplicar_estilo_tabla(ws, n_cols, len(df_out))

@@ -1,18 +1,17 @@
-import base64
 from pathlib import Path
 
 import streamlit as st
 
 RAIZ = Path(__file__).resolve().parent
 CSS_PATH = RAIZ / "assets" / "estilo.css"
-FONDO_PATH = RAIZ / "assets" / "fondo.png"
 
 
 def aplicar_estilo() -> None:
     css = CSS_PATH.read_text(encoding="utf-8") if CSS_PATH.exists() else ""
-    if FONDO_PATH.exists():
-        foto = base64.b64encode(FONDO_PATH.read_bytes()).decode("ascii")
-        css = css.replace("__FONDO__", foto)
+    css = css.replace(
+        "__FONDO__",
+        "https://raw.githubusercontent.com/dena0906zxfbjjluzz-max/excelclean-ai/master/assets/fondo.png",
+    )
     st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 
@@ -32,8 +31,8 @@ def cabecera() -> None:
     st.markdown(
         """
         <div class="hero">
-          <p class="hero-kicker">Limpieza de datos</p>
-          <h1>ExcelClean AI</h1>
+          <p class="hero-kicker">#ExcelClean</p>
+          <h1>ExcelClean<br>AI</h1>
           <p>Sube un Excel, aplica filtros y descarga la tabla lista para enviar.</p>
         </div>
         """,
