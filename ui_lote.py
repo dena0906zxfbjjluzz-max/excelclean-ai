@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from formulas import evaluar_formula, fila_totales
+from formulas import PLANTILLAS, aplicar_formula, fila_totales
 from limpieza import columnas_compatibles, es_columna_id
 
 
@@ -135,11 +135,23 @@ def barra_excel(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
             extra.loc[len(extra)] = [""] * len(extra.columns)
             _guardar_y_refrescar(extra, guardar)
 
-    f1, f2, f3 = st.columns([3, 1.4, 1.1])
+    def _elegir_fx():
+        elegido = st.session_state.get(f"{prefijo}_fx_pick")
+        if elegido and elegido in PLANTILLAS:
+            st.session_state[f"{prefijo}_fx"] = PLANTILLAS[elegido]
+
+    f0, f1, f2, f3 = st.columns([1.6, 2.4, 1.4, 1])
+    with f0:
+        st.selectbox(
+            "fx",
+            list(PLANTILLAS.keys()),
+            key=f"{prefijo}_fx_pick",
+            on_change=_elegir_fx,
+        )
     with f1:
         formula = st.text_input(
             "Fórmula",
-            placeholder="=SUMA(Kilos)  |  =PROMEDIO(Precio S/)  |  =CONTAR(Cliente)",
+            placeholder="=SUMA(Kilos)  |  =SI(Kilos>=10,Alto,Bajo)",
             key=f"{prefijo}_fx",
         )
     with f2:
@@ -149,24 +161,27 @@ def barra_excel(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
         st.write("")
         if st.button("Calcular", key=f"{prefijo}_fx_go") and formula.strip():
             try:
-                valor = evaluar_formula(df, formula, excluir_fila=int(fila) - 1)
-                if pd.isna(valor):
-                    st.error("No hay números para esa fórmula.")
+                modo, val = aplicar_formula(df, formula, excluir_fila=int(fila) - 1)
+                out = df.copy()
+                if destino not in out.columns:
+                    st.error("Elige una columna destino.")
+                elif modo == "columna":
+                    serie = pd.Series(val).reset_index(drop=True)
+                    out[destino] = serie.reindex(range(len(out))).tolist()
+                    _guardar_y_refrescar(out, guardar)
                 else:
-                    if float(valor).is_integer():
-                        valor = int(valor)
+                    if pd.isna(val):
+                        st.error("No hay números para esa fórmula.")
                     else:
-                        valor = round(float(valor), 4)
-                    out = df.copy()
-                    pos = int(fila) - 1
-                    if destino in out.columns and 0 <= pos < len(out):
-                        out.iat[pos, list(out.columns).index(destino)] = valor
-                        _guardar_y_refrescar(out, guardar)
+                        pos = int(fila) - 1
+                        if 0 <= pos < len(out):
+                            out.iat[pos, list(out.columns).index(destino)] = val
+                            _guardar_y_refrescar(out, guardar)
             except Exception as e:
                 st.error(str(e))
     st.caption(
-        "Marca **Sel** en la fila (como en Excel) y pulsa **Eliminar marcadas**. "
-        "También puedes poner el número de fila y usar Fila arriba / abajo / Borrar."
+        "Esta app no es Microsoft Excel: es tu limpiador con barra **fx** "
+        "(SUMA, SI, SUMAR.SI, MAYUSC…). Marca **Sel** y **Eliminar marcadas** para borrar filas."
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
