@@ -12,9 +12,7 @@ from ui_lote import borrar_editores, editar_tabla
 st.set_page_config(page_title="ExcelClean AI", page_icon="📊", layout="wide")
 aplicar_estilo()
 marca_sidebar()
-mostrar_titulo = st.sidebar.checkbox("Mostrar título", value=True)
-if mostrar_titulo:
-    cabecera()
+cabecera()
 
 archivo = st.file_uploader("Archivo Excel (.xlsx)", type=["xlsx"])
 
