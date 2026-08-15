@@ -23,16 +23,16 @@ def config_columnas(df: pd.DataFrame) -> dict:
 
 
 def altura_tabla(df: pd.DataFrame) -> int:
-    filas = int(df.shape[0]) + 2
-    return int(min(420, max(140, 44 + filas * 35)))
+    n = max(int(df.shape[0]), 1)
+    return int(min(520, 37 + n * 35))
 
 
-def editor_excel(df: pd.DataFrame, clave: str, altura: int | None = None) -> pd.DataFrame:
+def editor_excel(df: pd.DataFrame, clave: str) -> pd.DataFrame:
     return st.data_editor(
         columnas_compatibles(df),
-        num_rows="dynamic",
+        num_rows="fixed",
         use_container_width=True,
-        height=altura if altura is not None else altura_tabla(df),
+        height=altura_tabla(df),
         key=clave,
         hide_index=True,
         column_config=config_columnas(df),
@@ -40,7 +40,7 @@ def editor_excel(df: pd.DataFrame, clave: str, altura: int | None = None) -> pd.
 
 
 def herramientas_columnas(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
-    c1, c2, c3 = st.columns([2, 1, 2])
+    c1, c2, c3, c4 = st.columns([2, 1, 1, 2])
     with c1:
         nueva = st.text_input(
             "Nueva columna",
@@ -60,6 +60,16 @@ def herramientas_columnas(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFra
                 borrar_editores()
                 st.rerun()
     with c3:
+        st.write("")
+        st.write("")
+        if st.button("Fila +", key=f"{prefijo}_add_row") and len(df.columns):
+            df = df.copy()
+            df.loc[len(df)] = [""] * len(df.columns)
+            guardar(df)
+            st.session_state.editor_ver = st.session_state.get("editor_ver", 0) + 1
+            borrar_editores()
+            st.rerun()
+    with c4:
         if len(df.columns):
             borrar = st.selectbox(
                 "Quitar columna",
