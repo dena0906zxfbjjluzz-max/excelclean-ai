@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 
+from formulas import evaluar_formula, fila_totales
 from limpieza import columnas_compatibles, es_columna_id
 
 
@@ -14,6 +15,13 @@ def borrar_editores() -> None:
             pass
 
 
+def _guardar_y_refrescar(df: pd.DataFrame, guardar) -> None:
+    guardar(df.reset_index(drop=True))
+    st.session_state.editor_ver = st.session_state.get("editor_ver", 0) + 1
+    borrar_editores()
+    st.rerun()
+
+
 def config_columnas(df: pd.DataFrame) -> dict:
     cfg = {}
     for col in df.columns:
@@ -24,23 +32,118 @@ def config_columnas(df: pd.DataFrame) -> dict:
 
 def altura_tabla(df: pd.DataFrame) -> int:
     n = max(int(df.shape[0]), 1)
-    return int(min(520, 37 + n * 35))
+    return int(min(560, 42 + n * 35))
 
 
 def editor_excel(df: pd.DataFrame, clave: str) -> pd.DataFrame:
-    return st.data_editor(
-        columnas_compatibles(df),
+    vista = columnas_compatibles(df).copy()
+    vista.index = range(1, len(vista) + 1)
+    editado = st.data_editor(
+        vista,
         num_rows="fixed",
         use_container_width=True,
-        height=altura_tabla(df),
+        height=altura_tabla(vista),
         key=clave,
-        hide_index=True,
-        column_config=config_columnas(df),
+        hide_index=False,
+        column_config=config_columnas(vista),
     )
+    return editado.reset_index(drop=True)
 
 
-def herramientas_columnas(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
-    c1, c2, c3, c4 = st.columns([2, 1, 1, 2])
+def insertar_fila(df: pd.DataFrame, fila_1: int, abajo: bool) -> pd.DataFrame:
+    if df.empty or not len(df.columns):
+        return df
+    pos = max(1, min(int(fila_1), len(df)))
+    idx = pos if abajo else pos - 1
+    idx = max(0, min(idx, len(df)))
+    vacia = pd.DataFrame([[""] * len(df.columns)], columns=df.columns)
+    return pd.concat([df.iloc[:idx], vacia, df.iloc[idx:]], ignore_index=True)
+
+
+def barra_excel(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
+    n = max(len(df), 1)
+    cols = list(map(str, df.columns)) if len(df.columns) else ["(sin columnas)"]
+    clave_fila = f"{prefijo}_fila"
+    if clave_fila not in st.session_state:
+        st.session_state[clave_fila] = n
+    elif int(st.session_state[clave_fila]) > n:
+        st.session_state[clave_fila] = n
+
+    st.markdown('<div class="excel-bar">', unsafe_allow_html=True)
+    r1, r2, r3, r4, r5, r6 = st.columns([1.1, 1, 1, 1, 1.2, 1.2])
+    with r1:
+        fila = st.number_input(
+            "Fila",
+            min_value=1,
+            max_value=n,
+            step=1,
+            key=clave_fila,
+        )
+    with r2:
+        st.write("")
+        st.write("")
+        if st.button("Fila arriba", key=f"{prefijo}_up") and len(df.columns):
+            _guardar_y_refrescar(insertar_fila(df, int(fila), abajo=False), guardar)
+    with r3:
+        st.write("")
+        st.write("")
+        if st.button("Fila abajo", key=f"{prefijo}_down") and len(df.columns):
+            _guardar_y_refrescar(insertar_fila(df, int(fila), abajo=True), guardar)
+    with r4:
+        st.write("")
+        st.write("")
+        if st.button("Borrar fila", key=f"{prefijo}_del_row") and len(df):
+            pos = int(fila) - 1
+            if 0 <= pos < len(df):
+                _guardar_y_refrescar(df.drop(df.index[pos]).reset_index(drop=True), guardar)
+    with r5:
+        st.write("")
+        st.write("")
+        if st.button("Fila TOTAL", key=f"{prefijo}_total") and len(df.columns):
+            _guardar_y_refrescar(fila_totales(df), guardar)
+    with r6:
+        st.write("")
+        st.write("")
+        if st.button("Fila al final", key=f"{prefijo}_add_row") and len(df.columns):
+            extra = df.copy()
+            extra.loc[len(extra)] = [""] * len(extra.columns)
+            _guardar_y_refrescar(extra, guardar)
+
+    f1, f2, f3 = st.columns([3, 1.4, 1.1])
+    with f1:
+        formula = st.text_input(
+            "Fórmula",
+            placeholder="=SUMA(Kilos)  |  =PROMEDIO(Precio S/)  |  =CONTAR(Cliente)",
+            key=f"{prefijo}_fx",
+        )
+    with f2:
+        destino = st.selectbox("Guardar en columna", cols, key=f"{prefijo}_fx_col")
+    with f3:
+        st.write("")
+        st.write("")
+        if st.button("Calcular", key=f"{prefijo}_fx_go") and formula.strip():
+            try:
+                valor = evaluar_formula(df, formula, excluir_fila=int(fila) - 1)
+                if pd.isna(valor):
+                    st.error("No hay números para esa fórmula.")
+                else:
+                    if float(valor).is_integer():
+                        valor = int(valor)
+                    else:
+                        valor = round(float(valor), 4)
+                    out = df.copy()
+                    pos = int(fila) - 1
+                    if destino in out.columns and 0 <= pos < len(out):
+                        out.iat[pos, list(out.columns).index(destino)] = valor
+                        _guardar_y_refrescar(out, guardar)
+            except Exception as e:
+                st.error(str(e))
+    st.caption(
+        "Como Excel: elige la **fila**, inserta arriba o abajo, y usa =SUMA() =PROMEDIO() =MAX() =MIN() =CONTAR()."
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns([2, 1, 2])
     with c1:
         nueva = st.text_input(
             "Nueva columna",
@@ -53,40 +156,23 @@ def herramientas_columnas(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFra
         if st.button("Agregar", key=f"{prefijo}_add_col") and nueva.strip():
             nombre = nueva.strip()
             if nombre not in df.columns:
-                df = df.copy()
-                df[nombre] = ""
-                guardar(df)
-                st.session_state.editor_ver = st.session_state.get("editor_ver", 0) + 1
-                borrar_editores()
-                st.rerun()
+                extra = df.copy()
+                extra[nombre] = ""
+                _guardar_y_refrescar(extra, guardar)
     with c3:
-        st.write("")
-        st.write("")
-        if st.button("Fila +", key=f"{prefijo}_add_row") and len(df.columns):
-            df = df.copy()
-            df.loc[len(df)] = [""] * len(df.columns)
-            guardar(df)
-            st.session_state.editor_ver = st.session_state.get("editor_ver", 0) + 1
-            borrar_editores()
-            st.rerun()
-    with c4:
         if len(df.columns):
             borrar = st.selectbox(
                 "Quitar columna",
-                ["(ninguna)"] + list(map(str, df.columns)),
+                ["(ninguna)"] + cols,
                 key=f"{prefijo}_del_col",
             )
             if borrar != "(ninguna)" and st.button("Quitar", key=f"{prefijo}_del_btn"):
-                df = df.drop(columns=[borrar])
-                guardar(df)
-                st.session_state.editor_ver = st.session_state.get("editor_ver", 0) + 1
-                borrar_editores()
-                st.rerun()
+                _guardar_y_refrescar(df.drop(columns=[borrar]), guardar)
     return df
 
 
 def editar_tabla(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
-    df = herramientas_columnas(df, prefijo, guardar)
+    df = barra_excel(df, prefijo, guardar)
     editado = editor_excel(df, f"editor_{prefijo}")
     guardar(editado)
     return editado
