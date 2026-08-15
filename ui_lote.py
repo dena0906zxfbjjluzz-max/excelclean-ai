@@ -32,9 +32,12 @@ def config_columnas(df: pd.DataFrame) -> dict:
     return cfg
 
 
-def editor_excel(df: pd.DataFrame, clave: str) -> pd.DataFrame:
+def editor_excel(df: pd.DataFrame, clave: str, visibles: list | None = None) -> pd.DataFrame:
     vista = columnas_compatibles(df).copy()
     n = max(int(vista.shape[0]), 1)
+    orden = [c for c in (visibles or list(vista.columns)) if c in vista.columns]
+    if not orden:
+        orden = list(vista.columns)
     editado = st.data_editor(
         vista,
         num_rows="fixed",
@@ -43,6 +46,7 @@ def editor_excel(df: pd.DataFrame, clave: str) -> pd.DataFrame:
         key=clave,
         hide_index=True,
         column_config=config_columnas(vista),
+        column_order=orden,
     )
     return editado.reset_index(drop=True)
 
@@ -82,8 +86,31 @@ def herramientas_columnas(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFra
     return df
 
 
+def elegir_titulos(df: pd.DataFrame, prefijo: str) -> list:
+    nombres = list(map(str, df.columns))
+    clave = f"{prefijo}_cols_vis"
+    clave_todas = f"{prefijo}_cols_all"
+    if clave not in st.session_state:
+        st.session_state[clave] = list(nombres)
+    else:
+        st.session_state[clave] = [c for c in st.session_state[clave] if c in nombres]
+        anteriores = set(st.session_state.get(clave_todas, nombres))
+        for c in nombres:
+            if c not in anteriores and c not in st.session_state[clave]:
+                st.session_state[clave].append(c)
+    st.session_state[clave_todas] = list(nombres)
+    with st.expander("Títulos (mostrar u ocultar)", expanded=False):
+        visibles = st.multiselect(
+            "Columnas visibles. Desmarca las que quieras esconder.",
+            nombres,
+            key=clave,
+        )
+    return visibles if visibles else nombres
+
+
 def editar_tabla(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
     df = herramientas_columnas(df, prefijo, guardar)
-    editado = editor_excel(df, f"editor_{prefijo}")
+    visibles = elegir_titulos(df, prefijo)
+    editado = editor_excel(df, f"editor_{prefijo}", visibles=visibles)
     guardar(editado)
     return editado
