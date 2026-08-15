@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from formulas import PLANTILLAS, aplicar_formula, fila_totales
+from formulas import fila_totales
 from limpieza import columnas_compatibles, es_columna_id
 
 
@@ -135,50 +135,6 @@ def barra_excel(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
             extra.loc[len(extra)] = [""] * len(extra.columns)
             _guardar_y_refrescar(extra, guardar)
 
-    def _elegir_fx():
-        elegido = st.session_state.get(f"{prefijo}_fx_pick")
-        if elegido and elegido in PLANTILLAS:
-            st.session_state[f"{prefijo}_fx"] = PLANTILLAS[elegido]
-
-    f0, f1, f2, f3 = st.columns([1.6, 2.4, 1.4, 1])
-    with f0:
-        st.selectbox(
-            "fx",
-            list(PLANTILLAS.keys()),
-            key=f"{prefijo}_fx_pick",
-            on_change=_elegir_fx,
-        )
-    with f1:
-        formula = st.text_input(
-            "Fórmula",
-            placeholder="=SUMA(Kilos)  |  =SI(Kilos>=10,Alto,Bajo)",
-            key=f"{prefijo}_fx",
-        )
-    with f2:
-        destino = st.selectbox("Guardar en columna", cols, key=f"{prefijo}_fx_col")
-    with f3:
-        st.write("")
-        st.write("")
-        if st.button("Calcular", key=f"{prefijo}_fx_go") and formula.strip():
-            try:
-                modo, val = aplicar_formula(df, formula, excluir_fila=int(fila) - 1)
-                out = df.copy()
-                if destino not in out.columns:
-                    st.error("Elige una columna destino.")
-                elif modo == "columna":
-                    serie = pd.Series(val).reset_index(drop=True)
-                    out[destino] = serie.reindex(range(len(out))).tolist()
-                    _guardar_y_refrescar(out, guardar)
-                else:
-                    if pd.isna(val):
-                        st.error("No hay números para esa fórmula.")
-                    else:
-                        pos = int(fila) - 1
-                        if 0 <= pos < len(out):
-                            out.iat[pos, list(out.columns).index(destino)] = val
-                            _guardar_y_refrescar(out, guardar)
-            except Exception as e:
-                st.error(str(e))
     st.markdown("</div>", unsafe_allow_html=True)
 
     c1, c2, c3 = st.columns([2, 1, 2])
