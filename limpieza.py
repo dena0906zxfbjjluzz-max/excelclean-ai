@@ -119,8 +119,51 @@ def ids_a_texto(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _nombre_basura(nombre) -> bool:
+    t = str(nombre).strip().lower()
+    return t.startswith("unnamed") or t in ("", "nan", "none", "nat")
+
+
+def promover_encabezado_real(df: pd.DataFrame) -> pd.DataFrame:
+    """Si el Excel trae título arriba y encabezados en otra fila, usa esa fila."""
+    if df.empty:
+        return df
+    n_basura = sum(1 for c in df.columns if _nombre_basura(c))
+    if n_basura < max(1, len(df.columns) // 2):
+        return df
+    mejor_i = 0
+    mejor = -1
+    for i in range(min(8, len(df))):
+        textos = [
+            str(v).strip()
+            for v in df.iloc[i].tolist()
+            if pd.notna(v) and str(v).strip() not in ("", "nan", "None")
+        ]
+        if len(textos) > mejor:
+            mejor = len(textos)
+            mejor_i = i
+    if mejor < 2:
+        return df
+    vistos: dict[str, int] = {}
+    nombres = []
+    for i, v in enumerate(df.iloc[mejor_i].tolist()):
+        n = str(v).strip() if pd.notna(v) else ""
+        if n.lower() in ("nan", "none", ""):
+            n = f"Col{i + 1}"
+        if n in vistos:
+            vistos[n] += 1
+            n = f"{n}_{vistos[n]}"
+        else:
+            vistos[n] = 1
+        nombres.append(n)
+    out = df.iloc[mejor_i + 1 :].copy()
+    out.columns = nombres
+    return out.reset_index(drop=True)
+
+
 def leer_hoja(datos: bytes, hoja: str) -> pd.DataFrame:
     tabla = pd.read_excel(io.BytesIO(datos), sheet_name=hoja, engine="openpyxl")
+    tabla = promover_encabezado_real(tabla)
     return ids_a_texto(tabla)
 
 

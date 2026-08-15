@@ -62,14 +62,20 @@ def herramientas_columnas(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFra
                 extra[nombre] = ""
                 _refrescar(extra, guardar)
     with c3:
-        if len(df.columns):
-            borrar = st.selectbox(
-                "Quitar columna",
-                ["(ninguna)"] + list(map(str, df.columns)),
-                key=f"{prefijo}_del_col",
-            )
-            if borrar != "(ninguna)" and st.button("Quitar", key=f"{prefijo}_del_btn"):
-                _refrescar(df.drop(columns=[borrar]), guardar)
+        quitar = st.text_input(
+            "Quitar columna",
+            placeholder="Escribe el nombre exacto",
+            key=f"{prefijo}_del_col",
+        )
+        if quitar.strip() and st.button("Quitar", key=f"{prefijo}_del_btn"):
+            destino = None
+            pedido = quitar.strip().lower()
+            for col in df.columns:
+                if str(col).strip().lower() == pedido:
+                    destino = col
+                    break
+            if destino is not None:
+                _refrescar(df.drop(columns=[destino]), guardar)
     return df
 
 

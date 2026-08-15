@@ -66,3 +66,20 @@ def test_columnas_duplicadas():
     limpio, stats = _limpiar(df, quitar_columnas_duplicadas=True)
     assert stats["cols_dup"] >= 1
     assert "c" in limpio.columns
+
+
+def test_promueve_encabezado_si_hay_titulo():
+    from limpieza import promover_encabezado_real
+
+    df = pd.DataFrame(
+        [
+            ["Hoja del Lunes", None, None],
+            ["Cliente", "Kilos", "Precio S/"],
+            ["Pollería El Corralito", 48, 2.86],
+        ]
+    )
+    df.columns = ["Unnamed: 0", "Unnamed: 1", "Unnamed: 2"]
+    out = promover_encabezado_real(df)
+    assert "Cliente" in list(out.columns)
+    assert "Kilos" in list(out.columns)
+    assert out.iloc[0, 0] == "Pollería El Corralito"
