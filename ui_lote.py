@@ -22,12 +22,17 @@ def config_columnas(df: pd.DataFrame) -> dict:
     return cfg
 
 
-def editor_excel(df: pd.DataFrame, clave: str, altura: int = 520) -> pd.DataFrame:
+def altura_tabla(df: pd.DataFrame) -> int:
+    filas = int(df.shape[0]) + 2
+    return int(min(420, max(140, 44 + filas * 35)))
+
+
+def editor_excel(df: pd.DataFrame, clave: str, altura: int | None = None) -> pd.DataFrame:
     return st.data_editor(
         columnas_compatibles(df),
         num_rows="dynamic",
         use_container_width=True,
-        height=altura,
+        height=altura if altura is not None else altura_tabla(df),
         key=clave,
         hide_index=True,
         column_config=config_columnas(df),
