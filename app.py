@@ -19,7 +19,6 @@ archivo = st.file_uploader("Archivo Excel (.xlsx)", type=["xlsx"])
 if archivo is None:
     for k in ("resultado", "archivo_nombre", "hojas_elegidas", "edit_src", "editor_ver"):
         st.session_state.pop(k, None)
-    borrar_editores()
     st.stop()
 
 peso_mb = len(archivo.getvalue()) / (1024 * 1024)
@@ -102,8 +101,8 @@ corregir_numeros = st.sidebar.checkbox(
     "Forzar números (monto, precio, total, importe)", value=True
 )
 corregir_fechas = st.sidebar.checkbox(
-            "Normalizar fechas a YYYY-MM-DD (día primero)", value=True
-        )
+    "Normalizar fechas a YYYY-MM-DD (día primero)", value=True
+)
 
 st.sidebar.subheader("4. Extra")
 quitar_errores_excel = st.sidebar.checkbox(

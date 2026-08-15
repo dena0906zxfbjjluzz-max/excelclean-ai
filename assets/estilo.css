@@ -23,7 +23,6 @@ html, body, .stApp, [data-testid="stAppViewContainer"], section.main {
 
 [data-testid="stHeader"],
 [data-testid="stAppViewContainer"],
-[data-testid="stSidebar"],
 [data-testid="stBottomBlockContainer"] {
   position: relative;
   z-index: 1;
@@ -44,10 +43,33 @@ section.main,
   background: transparent !important;
 }
 
-[data-testid="stSidebar"] {
-  background: rgba(255, 255, 255, 0.28) !important;
-  backdrop-filter: blur(8px);
+section[data-testid="stSidebar"] {
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.72) !important;
   border-right: 1px solid rgba(28, 36, 31, 0.1);
+  height: 100vh !important;
+  min-height: 100vh !important;
+  overflow: hidden !important;
+}
+
+section[data-testid="stSidebar"] > div {
+  height: 100% !important;
+  max-height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-bottom: 2.5rem !important;
+}
+
+[data-testid="stSidebarContent"] {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+[data-testid="stSidebar"] .stCheckbox,
+[data-testid="stSidebar"] .stSelectbox,
+[data-testid="stSidebar"] .stMultiSelect {
+  margin-bottom: 0.15rem;
 }
 
 .hero {
