@@ -6,8 +6,12 @@ from limpieza import columnas_compatibles, es_columna_id
 
 def borrar_editores() -> None:
     for k in list(st.session_state.keys()):
-        if str(k).startswith("editor_"):
-            del st.session_state[k]
+        if not str(k).startswith("editor_"):
+            continue
+        try:
+            st.session_state.pop(k, None)
+        except KeyError:
+            pass
 
 
 def config_columnas(df: pd.DataFrame) -> dict:
