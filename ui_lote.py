@@ -24,8 +24,11 @@ def _refrescar(df: pd.DataFrame, guardar) -> None:
 def config_columnas(df: pd.DataFrame) -> dict:
     cfg = {}
     for col in df.columns:
+        nombre = str(col)
         if es_columna_id(col):
-            cfg[col] = st.column_config.TextColumn(str(col), width="medium")
+            cfg[col] = st.column_config.TextColumn(nombre, width="medium")
+        else:
+            cfg[col] = st.column_config.Column(nombre)
     return cfg
 
 

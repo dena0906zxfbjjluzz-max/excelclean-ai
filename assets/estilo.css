@@ -163,8 +163,13 @@ section.main [data-testid="stMarkdownContainer"] p {
   background: rgba(255, 255, 255, 0.96) !important;
 }
 
-[data-testid="stDataFrame"] [data-testid="stDataFrameResizable"] {
-  min-height: 0 !important;
+[data-testid="stDataFrame"] [role="columnheader"] {
+  white-space: nowrap !important;
+}
+
+[data-testid="stDataFrame"] [role="columnheader"] button,
+[data-testid="stDataFrame"] [role="columnheader"] svg {
+  display: none !important;
 }
 
 div[data-testid="stMetric"] {
