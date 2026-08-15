@@ -179,10 +179,6 @@ def barra_excel(df: pd.DataFrame, prefijo: str, guardar) -> pd.DataFrame:
                             _guardar_y_refrescar(out, guardar)
             except Exception as e:
                 st.error(str(e))
-    st.caption(
-        "Esta app no es Microsoft Excel: es tu limpiador con barra **fx** "
-        "(SUMA, SI, SUMAR.SI, MAYUSC…). Marca **Sel** y **Eliminar marcadas** para borrar filas."
-    )
     st.markdown("</div>", unsafe_allow_html=True)
 
     c1, c2, c3 = st.columns([2, 1, 2])
