@@ -45,14 +45,14 @@ except Exception as e:
 st.sidebar.caption("Hojas")
 if len(hojas) == 1:
     hojas_elegidas = hojas
-    st.sidebar.caption(hojas[0])
+    st.sidebar.caption(f"Una hoja: **{hojas[0]}**")
 else:
-    todas = st.sidebar.checkbox("Todas las hojas", value=False)
+    todas = st.sidebar.checkbox("Limpiar todas las hojas", value=False)
     if todas:
         hojas_elegidas = hojas
     else:
         hojas_elegidas = st.sidebar.multiselect(
-            "Hojas", hojas, default=[hojas[0]], label_visibility="collapsed"
+            "Hojas a tabular", hojas, default=[hojas[0]]
         )
     if not hojas_elegidas:
         st.warning("Elige al menos una hoja.")
@@ -74,34 +74,44 @@ for h, tabla in tablas.items():
     if h not in st.session_state.edit_src:
         st.session_state.edit_src[h] = tabla.copy()
 
-with st.sidebar.expander("Filas y columnas", expanded=True):
-    eliminar_duplicados = st.checkbox("Filas duplicadas", value=True)
-    eliminar_filas_vacias = st.checkbox("Filas vacías", value=True)
-    eliminar_columnas_vacias = st.checkbox("Columnas vacías", value=True)
-    normalizar_encabezados = st.checkbox("Nombres de columnas", value=True)
-    rellenar_na = st.checkbox("Vacíos → N/A")
+with st.sidebar.expander("1. Filas y columnas", expanded=True):
+    eliminar_duplicados = st.checkbox("Eliminar filas 100% idénticas", value=True)
+    eliminar_filas_vacias = st.checkbox("Eliminar filas completamente vacías", value=True)
+    eliminar_columnas_vacias = st.checkbox(
+        "Eliminar columnas completamente vacías", value=True
+    )
+    normalizar_encabezados = st.checkbox("Limpiar nombres de columnas", value=True)
+    rellenar_na = st.checkbox("Rellenar celdas vacías sueltas con N/A")
 
-with st.sidebar.expander("Texto", expanded=False):
-    limpiar_espacios = st.checkbox("Recortar espacios", value=True)
-    espacios_internos = st.checkbox("Un solo espacio", value=True)
+with st.sidebar.expander("2. Texto", expanded=False):
+    limpiar_espacios = st.checkbox("Quitar espacios al inicio/final", value=True)
+    espacios_internos = st.checkbox("Dejar un solo espacio entre palabras", value=True)
     modo_texto = st.selectbox(
-        "Mayúsculas",
+        "Mayúsculas / minúsculas",
         ["dejar", "MAYÚSCULAS", "minúsculas", "Título"],
     )
-    remover_especiales = st.checkbox("Quitar # $ % @")
+    remover_especiales = st.checkbox("Quitar caracteres raros (#, $, %, @)")
 
-with st.sidebar.expander("Números y fechas", expanded=False):
-    corregir_numeros = st.checkbox("Forzar números", value=True)
-    corregir_fechas = st.checkbox("Fechas YYYY-MM-DD", value=True)
+with st.sidebar.expander("3. Números y fechas", expanded=False):
+    corregir_numeros = st.checkbox(
+        "Forzar números (monto, precio, total, importe)", value=True
+    )
+    corregir_fechas = st.checkbox(
+        "Normalizar fechas a YYYY-MM-DD (día primero)", value=True
+    )
 
-with st.sidebar.expander("Extra", expanded=False):
-    quitar_errores_excel = st.checkbox("Errores #REF! #N/A", value=True)
-    quitar_filas_total = st.checkbox("Filas Total/Subtotal", value=True)
-    rellenar_hacia_abajo = st.checkbox("Rellenar hacia abajo")
-    quitar_nulos_texto = st.checkbox("NULL / n/a → vacío", value=True)
-    quitar_columnas_duplicadas = st.checkbox("Columnas repetidas", value=True)
-    convertir_pct = st.checkbox("12% → 12", value=True)
-    normalizar_si_no = st.checkbox("Unificar SI/NO")
+with st.sidebar.expander("4. Extra", expanded=False):
+    quitar_errores_excel = st.checkbox(
+        "Quitar errores de Excel (#REF!, #N/A, #VALUE!)", value=True
+    )
+    quitar_filas_total = st.checkbox("Quitar filas de Total / Subtotal", value=True)
+    rellenar_hacia_abajo = st.checkbox(
+        "Rellenar celdas vacías con el valor de arriba"
+    )
+    quitar_nulos_texto = st.checkbox("Tratar NULL / n/a / sin dato como vacío", value=True)
+    quitar_columnas_duplicadas = st.checkbox("Quitar columnas idénticas", value=True)
+    convertir_pct = st.checkbox("Convertir porcentajes (12% → 12)", value=True)
+    normalizar_si_no = st.checkbox("Unificar SI / NO")
 
 if st.sidebar.button("Limpiar ahora", use_container_width=True, type="primary"):
     with st.spinner("Tabulando y limpiando..."):
